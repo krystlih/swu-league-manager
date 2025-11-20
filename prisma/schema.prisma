@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model League {
+  id                Int                @id @default(autoincrement())
+  guildId           String             // Discord server ID
+  name              String
+  description       String?
+  format            String             // User-defined format (e.g., "Standard", "Modern", "Limited")
+  competitionType   String             // SWISS, SWISS_WITH_TOP_CUT, DOUBLE_ELIMINATION, SINGLE_ELIMINATION
+  hasTopCut         Boolean            @default(false)
+  topCutSize        Int?               // Number of players in top cut (e.g., 8, 16)
+  status            String             @default("REGISTRATION") // REGISTRATION, IN_PROGRESS, TOP_CUT, COMPLETED, CANCELLED
+  currentRound      Int                @default(0)
+  totalRounds       Int?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  
+  registrations     Registration[]
+  rounds            Round[]
+  matches           Match[]
+  
+  @@unique([guildId, name])
+  @@index([guildId])
+}
+
+model Player {
+  id                Int                @id @default(autoincrement())
+  discordId         String             @unique
+  username          String
+  createdAt         DateTime           @default(now())
+  
+  registrations     Registration[]
+  matchesAsPlayer1  Match[]            @relation("Player1Matches")
+  matchesAsPlayer2  Match[]            @relation("Player2Matches")
+}
+
+model Registration {
+  id                Int                @id @default(autoincrement())
+  leagueId          Int
+  playerId          Int
+  tournamentId      String?            // ID in tournament-organizer
+  wins              Int                @default(0)
+  losses            Int                @default(0)
+  draws             Int                @default(0)
+  matchPoints       Int                @default(0)
+  gamePoints        Int                @default(0)
+  omwPercent        Float              @default(0)
+  gwPercent         Float              @default(0)
+  ogwPercent        Float              @default(0)
+  isActive          Boolean            @default(true)
+  isDropped         Boolean            @default(false)
+  registeredAt      DateTime           @default(now())
+  
+  league            League             @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  player            Player             @relation(fields: [playerId], references: [id])
+  
+  @@unique([leagueId, playerId])
+  @@index([leagueId])
+}
+
+model Round {
+  id                Int                @id @default(autoincrement())
+  leagueId          Int
+  roundNumber       Int
+  isTopCut          Boolean            @default(false)
+  startedAt         DateTime           @default(now())
+  completedAt       DateTime?
+  
+  league            League             @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  matches           Match[]
+  
+  @@unique([leagueId, roundNumber])
+}
+
+model Match {
+  id                Int                @id @default(autoincrement())
+  leagueId          Int
+  roundId           Int?
+  player1Id         Int
+  player2Id         Int
+  player1Wins       Int                @default(0)
+  player2Wins       Int                @default(0)
+  draws             Int                @default(0)
+  winnerId          Int?
+  isDraw            Boolean            @default(false)
+  isBye             Boolean            @default(false)
+  isCompleted       Boolean            @default(false)
+  tableNumber       Int?
+  reportedAt        DateTime?
+  createdAt         DateTime           @default(now())
+  
+  league            League             @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  round             Round?             @relation(fields: [roundId], references: [id])
+  player1           Player             @relation("Player1Matches", fields: [player1Id], references: [id])
+  player2           Player             @relation("Player2Matches", fields: [player2Id], references: [id])
+  
+  @@index([leagueId])
+  @@index([roundId])
+}
