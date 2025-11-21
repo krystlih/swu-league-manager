@@ -98,6 +98,18 @@ export class SwissPairingGenerator {
         break;
       }
       
+      // If no opponent found (they've played everyone), allow a rematch
+      if (!player2) {
+        for (let j = i + 1; j < sortedPlayers.length; j++) {
+          const candidate = sortedPlayers[j];
+          
+          if (paired.has(candidate.id)) continue;
+          
+          player2 = candidate;
+          break;
+        }
+      }
+      
       if (player2) {
         paired.add(player1.id);
         paired.add(player2.id);
@@ -109,13 +121,9 @@ export class SwissPairingGenerator {
           isBye: false,
         });
       } else if (!paired.has(player1.id)) {
-        // Player can't find an opponent and isn't already paired
-        // This could happen in edge cases - give them a bye
+        // Still no opponent found - this shouldn't happen but handle it
+        // Mark as paired to avoid infinite loop
         paired.add(player1.id);
-        // We'll track this bye player ID if we didn't already assign one
-        if (byePlayerId === null) {
-          byePlayerId = player1.id;
-        }
       }
     }
     
