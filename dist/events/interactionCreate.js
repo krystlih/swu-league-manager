@@ -37,7 +37,7 @@ exports.default = {
             console.error(`Error executing ${interaction.commandName}:`, error);
             const reply = {
                 content: 'There was an error executing this command!',
-                ephemeral: true,
+                flags: 64, // EPHEMERAL flag
             };
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp(reply);

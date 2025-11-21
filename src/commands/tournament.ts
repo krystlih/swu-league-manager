@@ -217,7 +217,8 @@ export const tournamentCommand = {
         }
 
         // Store announcement channel for timer announcements
-        if (league.roundTimerMinutes && !league.announcementChannelId) {
+        // Set announcement channel to current channel if not already set
+        if (!league.announcementChannelId) {
           await leagueService.updateLeague(leagueId, {
             announcementChannelId: interaction.channelId
           });
