@@ -194,11 +194,15 @@ class LeagueService {
             if (league.competitionType === 'SWISS_WITH_TOP_CUT' && !league.hasTopCut) {
                 // Start top cut automatically
                 await this.startTopCut(leagueId);
+                // Give Discord a moment to send the message
+                await new Promise(resolve => setTimeout(resolve, 1000));
                 throw new Error('Swiss rounds complete. Top Cut has been started.');
             }
             else {
                 // End tournament automatically
                 await this.autoEndTournament(leagueId);
+                // Give Discord a moment to send the message
+                await new Promise(resolve => setTimeout(resolve, 1000));
                 throw new Error('All rounds are complete. Tournament has been ended.');
             }
         }
