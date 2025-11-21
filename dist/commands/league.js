@@ -148,14 +148,15 @@ exports.leagueCommand = {
                 const embed = new discord_js_1.EmbedBuilder()
                     .setColor(0x5865f2)
                     .setTitle('📚 League System Guide')
-                    .setDescription('Complete guide to managing and participating in leagues')
+                    .setDescription('Complete guide to managing and participating in leagues with automatic tournament progression')
                     .addFields({
                     name: '1️⃣ Creating a League',
                     value: '**Command:** `/league create`\n' +
                         '• Choose a **name** for your league\n' +
                         '• Specify the **format** (e.g., Premier, Twin Suns, Limited)\n' +
                         '• Select **competition type** (Swiss, Swiss with Top Cut, etc.)\n' +
-                        '• Optionally set the number of **rounds**\n' +
+                        '• **Automatic round calculation** based on player count\n' +
+                        '• **Automatic top cut size** for Swiss with Top Cut format\n' +
                         '• League starts in REGISTRATION status',
                     inline: false
                 }, {
@@ -171,32 +172,40 @@ exports.leagueCommand = {
                     inline: false
                 }, {
                     name: '3️⃣ Starting the Tournament',
-                    value: '**Command:** `/tournament start`\n' +
-                        '• Generates Round 1 pairings automatically\n' +
+                    value: '**Command:** `/tournament start` [Creator Only]\n' +
+                        '• **Automatically calculates** Swiss rounds (2-8 players → 1-3 rounds, etc.)\n' +
+                        '• **Automatically generates Round 1** pairings\n' +
                         '• Changes league status to IN_PROGRESS\n' +
-                        '• Players receive their table assignments',
+                        '• Players can immediately start reporting results\n' +
+                        '• No need to run `/tournament nextround` for first round',
                     inline: false
                 }, {
                     name: '4️⃣ Viewing Pairings',
                     value: '**Command:** `/tournament pairings`\n' +
                         '• Shows current round matchups\n' +
                         '• Displays table numbers for each match\n' +
-                        '• Indicates which players have byes',
+                        '• Indicates which players have byes\n' +
+                        '• Shows match completion status',
                     inline: false
                 }, {
                     name: '5️⃣ Reporting Match Results',
                     value: '**Command:** `/tournament report`\n' +
                         '• System automatically finds your active match\n' +
-                        '• Choose result: **Win**, **Loss**, or **Draw**\n' +
-                        '• Both players should report (system validates agreement)',
+                        '• Enter your wins, opponent wins, and draws\n' +
+                        '• Results immediately update standings\n' +
+                        '• **Automatic progression**: When all matches in a round complete:\n' +
+                        '  - Swiss rounds → Waits for nextround or auto-ends if final round\n' +
+                        '  - Top Cut → Automatically generates next bracket round\n' +
+                        '  - Finals → Tournament ends automatically',
                     inline: false
                 }, {
-                    name: '6️⃣ Advancing Rounds',
-                    value: '**Command:** `/tournament nextround`\n' +
+                    name: '6️⃣ Advancing Rounds (Swiss Only)',
+                    value: '**Command:** `/tournament nextround` [Creator Only]\n' +
                         '• Use after all matches in current round are complete\n' +
                         '• Generates new pairings using Swiss pairing algorithm\n' +
                         '• Avoids rematches when possible\n' +
-                        '• Assigns byes to odd-player-count rounds',
+                        '• Assigns byes to odd-player-count rounds\n' +
+                        '• **Not needed for Top Cut** - progresses automatically',
                     inline: false
                 }, {
                     name: '7️⃣ Checking Standings',
@@ -207,20 +216,33 @@ exports.leagueCommand = {
                         '• Updates in real-time as matches are reported',
                     inline: false
                 }, {
-                    name: '8️⃣ Dropping from Tournament',
+                    name: '8️⃣ Tournament Progression & Top Cut',
+                    value: '**Automatic Swiss Completion:**\n' +
+                        '• Tournament auto-ends when final Swiss round completes\n' +
+                        '• No manual ending needed for Swiss-only tournaments\n\n' +
+                        '**Swiss with Top Cut:**\n' +
+                        '• After Swiss rounds complete, **Top Cut starts automatically**\n' +
+                        '• Bracket seeding: 1st vs Last, 2nd vs 2nd-to-Last, etc.\n' +
+                        '• **Single Elimination** - losers are eliminated\n' +
+                        '• Each round auto-generates when previous completes\n' +
+                        '• Tournament **auto-ends** after finals complete\n' +
+                        '• Top Cut sizes: 32+ players → Top 8, 16-31 → Top 4, 8-15 → Top 2',
+                    inline: false
+                }, {
+                    name: '9️⃣ Dropping from Tournament',
                     value: '**Command:** `/tournament drop`\n' +
                         '• Players can drop from active tournaments\n' +
                         '• Won\'t be paired in future rounds\n' +
                         '• Previous results remain in standings',
                     inline: false
                 }, {
-                    name: '9️⃣ Ending the Tournament',
+                    name: '🏁 Manual Tournament Ending',
                     value: '**Command:** `/tournament end` [Creator Only]\n' +
-                        '• Officially ends the tournament\n' +
+                        '• Manually end a tournament at any time\n' +
                         '• Announces final standings and champion\n' +
                         '• Displays top 3 with detailed stats\n' +
                         '• Changes league status to COMPLETED\n' +
-                        '• Logged in audit trail',
+                        '• **Note:** Most tournaments end automatically',
                     inline: false
                 }, {
                     name: '🔧 League Creator Tools',
@@ -230,8 +252,9 @@ exports.leagueCommand = {
                         '• Useful for finding matches to modify\n\n' +
                         '**Modify Match:** `/tournament modifymatch` [Creator Only]\n' +
                         '• Correct match results after they\'re reported\n' +
+                        '• Works on both reported and unreported matches\n' +
                         '• Requires match ID (use `/tournament findmatch`)\n' +
-                        '• Automatically recalculates standings\n' +
+                        '• Automatically recalculates standings and tiebreakers\n' +
                         '• All changes are logged in audit log\n\n' +
                         '**Repair Round:** `/tournament repairround` [Creator Only]\n' +
                         '• Delete all matches in current round\n' +
@@ -241,35 +264,52 @@ exports.leagueCommand = {
                         '**Audit Log:** `/league auditlog` [Creator Only]\n' +
                         '• View history of all league modifications\n' +
                         '• See who made changes and when\n' +
-                        '• Tracks starts, match edits, and round repairs',
+                        '• Tracks starts, match edits, round repairs, auto-ends',
                     inline: false
                 }, {
-                    name: ' Managing Leagues',
+                    name: '📊 Statistics & History',
+                    value: '**Player Stats:** `/stats player [player]`\n' +
+                        '• View tournament history and career stats\n' +
+                        '• Shows championships, win rate, game win %\n' +
+                        '• Recent tournament placements\n\n' +
+                        '**Leaderboard:** `/stats leaderboard [format] [sort]`\n' +
+                        '• Server-wide rankings\n' +
+                        '• Filter by format, sort by various stats\n' +
+                        '• Top 10 players displayed\n\n' +
+                        '**Head-to-Head:** `/stats matchup <player1> <player2>`\n' +
+                        '• Compare two players directly\n' +
+                        '• Match wins, game wins, recent matches\n\n' +
+                        '**Tournament History:** `/history list`\n' +
+                        '• View all completed tournaments\n' +
+                        '• `/history results` - Final standings\n' +
+                        '• `/history pairings` - Round pairings\n' +
+                        '• `/history matches` - Search match results',
+                    inline: false
+                }, {
+                    name: '⚙️ Managing Leagues',
                     value: '**View:** `/league list` - See all active leagues\n' +
-                        '**Cancel:** `/league cancel` - Cancel a league\n' +
+                        '**Cancel:** `/league cancel` [Creator Only] - Cancel a league\n' +
                         '**Help:** `/league help` - Show this guide',
                     inline: false
                 }, {
-                    name: '📜 Tournament History',
-                    value: '**List:** `/history list` - View all completed tournaments\n' +
-                        '**Results:** `/history results` - See final standings of a completed tournament\n' +
-                        '**Pairings:** `/history pairings` - View round pairings from past tournaments\n' +
-                        '**Matches:** `/history matches` - Search match results, filter by player',
-                    inline: false
-                }, {
-                    name: '🎯 Tips',
-                    value: '• All league selections use **autocomplete** - start typing to filter\n' +
-                        '• Swiss pairing uses official tiebreaker calculations\n' +
-                        '• Only the league creator can start tournaments and use creator tools\n' +
-                        '• Completed tournaments are archived and searchable in history\n' +
-                        '• Leagues persist across bot restarts',
+                    name: '🎯 Tips & Features',
+                    value: '• **Autocomplete everywhere** - start typing to filter leagues\n' +
+                        '• **Automatic round calculation** - Swiss rounds based on player count\n' +
+                        '• **Automatic tournament progression** - Top Cut advances automatically\n' +
+                        '• **Match result recalculation** - Standings rebuild from match data\n' +
+                        '• **Creator-only controls** - Start, modify, repair, end commands\n' +
+                        '• **Swiss pairing** uses official tiebreaker calculations\n' +
+                        '• **All actions logged** in audit trail for transparency\n' +
+                        '• **Completed tournaments archived** and searchable\n' +
+                        '• **Status tracking**: REGISTRATION → IN_PROGRESS → TOP_CUT → COMPLETED\n' +
+                        '• Data persists across bot restarts',
                     inline: false
                 })
-                    .setFooter({ text: 'Use autocomplete (start typing) when selecting leagues in any command' })
+                    .setFooter({ text: 'Tournaments now progress automatically! Top Cut and final rounds auto-advance.' })
                     .setTimestamp();
                 try {
                     await interaction.user.send({ embeds: [embed] });
-                    await interaction.reply({ content: 'I\'ve sent you a DM with the league system guide!', ephemeral: true });
+                    await interaction.reply({ content: 'I\'ve sent you a DM with the complete league system guide!', ephemeral: true });
                 }
                 catch (dmError) {
                     // If DM fails (user has DMs disabled), fall back to ephemeral message

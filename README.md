@@ -1,18 +1,23 @@
 # Discord League Manager
 
-A Discord bot for managing TCG (Trading Card Game) leagues with automated Swiss pairing, comprehensive standings tracking, and multiple tournament formats.
+A comprehensive Discord bot for managing TCG (Trading Card Game) tournaments with **automatic progression**, Swiss pairing, top cut brackets, player statistics, and complete tournament history tracking.
 
-## Features
+## ✨ Key Features
 
-- 🎮 **Multiple Tournament Formats**: Swiss, Swiss with Top Cut, Double/Single Elimination
-- 🔄 **Automated Swiss Pairing**: Professional pairing algorithm with proper tiebreakers
-- 📊 **Real-time Standings**: Track match records with OMW%, GW%, and OGW% tiebreakers
-- 🏆 **Multi-League Support**: Run multiple concurrent leagues per Discord server
-- 💾 **Persistent Data**: All data stored in database (SQLite/PostgreSQL/MySQL)
-- ⚡ **Slash Commands**: Modern Discord slash command interface
-- 🌐 **Multi-Server**: One bot instance can serve multiple Discord servers
+- 🤖 **Automatic Tournament Progression**: Tournaments auto-advance through rounds and end when complete
+- 🎯 **Smart Round Calculation**: Automatic Swiss round count based on player count
+- 🏆 **Automated Top Cut**: Single elimination brackets with seeded pairings
+- 🔄 **Swiss Pairing Algorithm**: Professional Swiss pairing with official tiebreakers
+- 📊 **Real-time Standings**: Live rankings with OMW%, GW%, and OGW% calculations
+- 📈 **Player Statistics**: Career stats, win rates, tournament history, head-to-head records
+- � **Multiple Formats**: Swiss, Swiss with Top Cut, Double/Single Elimination
+- 📜 **Complete History**: Search past tournaments, view results, and match archives
+- 🔧 **Creator Tools**: Match modification, round repair, and audit logging
+- 💾 **Persistent Data**: Database-backed with automatic state recovery
+- ⚡ **Modern Interface**: Slash commands with autocomplete everywhere
+- 🌐 **Multi-Server**: One bot instance serves multiple Discord servers
 
-## Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 
@@ -53,136 +58,232 @@ CLIENT_ID=your_application_id_here
 DATABASE_URL="file:./dev.db"
 ```
 
-## Commands
+## 📋 Commands
 
 ### League Management
-
-- `/league create` - Create a new league
+- `/league create` - Create a new league with automatic round calculation
 - `/league list` - View active leagues
-- `/league cancel` - Cancel a league
+- `/league cancel` - Cancel a league (creator only)
+- `/league auditlog` - View modification history (creator only)
+- `/league help` - Complete in-bot guide
 
 ### Player Registration
-
 - `/register` - Register for a league
+- `/manualregister` - Manually register users (creator only)
 
 ### Tournament Operations
+- `/tournament start` - Begin tournament (auto-generates Round 1)
+- `/tournament nextround` - Generate next Swiss round (creator only)
+- `/tournament report` - Report your match results
+- `/tournament pairings` - View current round matchups
+- `/tournament drop` - Drop from active tournament
+- `/tournament end` - Manually end tournament (creator only)
 
-- `/tournament start` - Begin a league
-- `/tournament nextround` - Generate next round pairings
-- `/tournament report` - Report match results
-- `/tournament pairings` - View current round
-- `/tournament drop` - Drop from league
+### Creator Tools
+- `/tournament findmatch` - Search for matches by player
+- `/tournament modifymatch` - Correct match results (creator only)
+- `/tournament repairround` - Regenerate current round (creator only)
 
-### Standings
-
+### Standings & Statistics
 - `/standings` - View league standings with tiebreakers
+- `/stats player [user]` - View player career statistics
+- `/stats leaderboard [format] [sort]` - Server-wide rankings
+- `/stats matchup <player1> <player2>` - Head-to-head comparison
 
-## Example Usage
+### Tournament History
+- `/history list` - View all completed tournaments
+- `/history results` - Final standings of past tournaments
+- `/history pairings` - View round pairings from history
+- `/history matches` - Search historical match results
 
-```
-1. Create a league
-   /league create name:"FNM Modern" format:"Modern" type:"Swiss" rounds:4
+## 🎯 How It Works
 
-2. Players register
-   /register league_id:1
+### Automatic Tournament Flow
 
-3. Start the tournament
-   /tournament start league_id:1
+1. **Create & Register**
+   ```
+   /league create name:"FNM Premier" format:"Premier" type:"Swiss with Top Cut"
+   Players use /register to join
+   ```
 
-4. Generate pairings
-   /tournament nextround league_id:1
+2. **Auto-Start**
+   ```
+   /tournament start
+   - Calculates Swiss rounds (8 players → 3 rounds)
+   - Determines Top Cut size (8 players → Top 2)
+   - Generates Round 1 automatically
+   ```
 
-5. Report results
-   /tournament report match_id:1 player1_wins:2 player2_wins:0
+3. **Swiss Rounds**
+   ```
+   Players report with /tournament report
+   When round completes:
+   - Creator runs /tournament nextround for next Swiss round
+   - After final Swiss round, Top Cut starts automatically
+   ```
 
-6. View standings
-   /standings league_id:1
-```
+4. **Top Cut (Automatic)**
+   ```
+   - Seeded bracket: 1st vs 2nd
+   - Single elimination
+   - Rounds auto-generate as matches complete
+   - Finals complete → Tournament ends automatically
+   ```
 
-## Documentation
+### Swiss Round Calculation
+- **2 players** → 1 round
+- **3-4 players** → 2 rounds
+- **5-8 players** → 3 rounds
+- **9-16 players** → 4 rounds
+- **17-32 players** → 5 rounds
+- **33-64 players** → 6 rounds
+- **65-128 players** → 7 rounds
+- **129+ players** → 8 rounds
 
-- **[Setup Guide](./SETUP.md)** - Detailed installation and configuration
-- **[Usage Guide](./USAGE.md)** - Complete command reference and workflows
-- **[Architecture](./ARCHITECTURE.md)** - Technical documentation and design decisions
+### Top Cut Sizes
+- **32+ players** → Top 8
+- **16-31 players** → Top 4
+- **8-15 players** → Top 2
+- **< 8 players** → No top cut
 
-## Technology Stack
+## 📚 Documentation
+
+- **Built-in Help**: Use `/league help` for complete in-bot guide
+- Automatic tournament progression with Swiss and Top Cut
+- All commands use autocomplete for easy league selection
+- Creator-only controls for tournament management
+- Complete audit trail of all modifications
+
+## 🛠️ Technology Stack
 
 - **Discord.js v14** - Discord bot framework
 - **TypeScript v5** - Type-safe development
 - **Prisma ORM v5** - Database abstraction
-- **tournament-organizer** - Swiss pairing algorithm
+- **Custom Swiss Pairing** - Professional pairing algorithm with tiebreakers
 - **SQLite/PostgreSQL/MySQL** - Database options
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 src/
-├── bot.ts              # Entry point
-├── types/              # TypeScript interfaces
-├── commands/           # Discord slash commands
-├── services/           # Business logic
+├── bot.ts                    # Entry point
+├── types/                    # TypeScript interfaces
+├── commands/                 # Discord slash commands
+│   ├── league.ts            # League management
+│   ├── registration.ts      # Player registration
+│   ├── tournament.ts        # Tournament operations
+│   ├── standings.ts         # Standings display
+│   ├── stats.ts             # Player statistics
+│   ├── history.ts           # Tournament history
+│   └── manualRegister.ts    # Manual registration
+├── services/                 # Business logic
+│   ├── leagueService.ts     # Main tournament logic
+│   ├── tournamentService.ts # In-memory state management
+│   └── pairingService.ts    # Swiss pairing algorithm
 ├── data/
-│   ├── repositories/   # Database access layer
+│   ├── repositories/        # Database access layer
 │   └── prismaClient.ts
-└── events/             # Discord event handlers
+├── utils/
+│   ├── swissPairings.ts     # Swiss algorithm
+│   └── leaderboard.ts       # Standings calculations
+└── events/                   # Discord event handlers
 ```
 
-## Swiss Pairing System
+## 🎲 Swiss Pairing System
 
-The bot implements professional Swiss pairing with:
+Custom implementation with professional features:
 
-- **First Round**: Random pairings
-- **Later Rounds**: Match similar records, avoid repeats
-- **Tiebreakers**:
-  - Match Points (Win=3, Draw=1, Loss=0)
-  - OMW% - Opponent Match Win Percentage
-  - GW% - Game Win Percentage
-  - OGW% - Opponent Game Win Percentage
+- **First Round**: Random pairings with seeding option
+- **Later Rounds**: Match similar records, avoid rematches
+- **Bye Handling**: Lowest-ranked player receives bye when odd count
+- **Tiebreakers** (in order):
+  1. Match Points (Win=3, Draw=1, Loss=0)
+  2. OMW% - Opponent Match Win Percentage
+  3. GW% - Game Win Percentage
+  4. OGW% - Opponent Game Win Percentage
 
-## Database Schema
+## 🗄️ Database Schema
 
-Core entities:
-- **League** - Tournament configuration and status
-- **Player** - User profiles linked to Discord IDs
-- **Registration** - Player enrollment with stats
-- **Round** - Round tracking
-- **Match** - Individual match results
+Core entities with relationships:
 
-## Contributing
+- **League** - Tournament configuration, status, round tracking
+- **Player** - Discord user profiles with unique IDs
+- **Registration** - Player enrollment with match records and tiebreakers
+- **Round** - Round metadata and timing
+- **Match** - Match results with game-level detail
+- **AuditLog** - Complete modification history
+
+## ✨ Advanced Features
+
+### Automatic Tournament Progression
+- Swiss rounds calculated based on player count
+- Top Cut sizes determined automatically
+- Tournaments auto-advance through Top Cut brackets
+- Tournaments auto-end when complete
+
+### Match Result System
+- Results recalculated from raw match data
+- Modification of unreported or reported matches
+- Automatic standings updates
+- Complete audit trail
+
+### Player Statistics
+- Career tournament stats across all formats
+- Win rates (match and game level)
+- Championship tracking
+- Head-to-head records
+- Server-wide leaderboards
+
+### Tournament History
+- Complete archive of past tournaments
+- Searchable match database
+- Round-by-round pairings
+- Final standings preservation
+
+## 🤝 Contributing
 
 Contributions welcome! Please:
 
 1. Fork the repository
 2. Create a feature branch
-3. Follow existing code patterns
-4. Add tests for new features
+3. Follow existing code patterns and TypeScript types
+4. Test with multiple tournament scenarios
 5. Submit a pull request
 
-## License
+## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details
 
-## Support
+## 💬 Support
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/discord-league-manager/issues)
-- **Documentation**: See `/docs` folder
-- **Discord**: [Join our support server](https://discord.gg/yourinvite)
+- **In-Bot Help**: Use `/league help` command
+- **Documentation**: Complete guide available in-bot
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
-- [tournament-organizer](https://github.com/slashinfty/tournament-organizer) - Swiss pairing library
+- Built for the Star Wars: Unlimited TCG community
+- Inspired by professional tournament management software
 - [Discord.js](https://discord.js.org/) - Discord API library
 - [Prisma](https://www.prisma.io/) - Database ORM
 
-## Roadmap
+## 🗺️ Roadmap
 
+- [x] Automatic tournament progression
+- [x] Top Cut with single elimination
+- [x] Player statistics and leaderboards
+- [x] Tournament history and archives
+- [x] Match modification and round repair
+- [x] Complete audit logging
 - [ ] Web dashboard for standings
-- [ ] Export tournament data
-- [ ] Match timer notifications
-- [ ] Player statistics over time
-- [ ] Deck list collection
 - [ ] Tournament bracket visualization
+- [ ] Match timer notifications
+- [ ] Deck list collection
+- [ ] Export tournament data (JSON/CSV)
+- [ ] Double elimination support
 
 ---
 
-Made with ❤️ for the TCG community
+**Made with ❤️ for the TCG community**
+
+*Run professional-grade tournaments directly in Discord with minimal setup!*

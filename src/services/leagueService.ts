@@ -59,6 +59,32 @@ export class LeagueService {
     return allLeagues.filter(l => l.status === LeagueStatus.COMPLETED);
   }
 
+  /**
+   * Calculate number of Swiss rounds based on player count
+   * Standard tournament formula: log2(players) rounded up
+   */
+  private calculateSwissRounds(playerCount: number): number {
+    if (playerCount <= 2) return 1;
+    if (playerCount <= 4) return 2;
+    if (playerCount <= 8) return 3;
+    if (playerCount <= 16) return 4;
+    if (playerCount <= 32) return 5;
+    if (playerCount <= 64) return 6;
+    if (playerCount <= 128) return 7;
+    return 8; // Maximum 8 rounds for very large tournaments
+  }
+
+  /**
+   * Calculate top cut size based on total players
+   * Standard: Top 8 for 32+, Top 4 for 16-31, Top 2 for 8-15
+   */
+  private calculateTopCutSize(playerCount: number): number {
+    if (playerCount >= 32) return 8;
+    if (playerCount >= 16) return 4;
+    if (playerCount >= 8) return 2;
+    return 0; // No top cut for fewer than 8 players
+  }
+
   async registerPlayer(leagueId: number, discordId: string, username: string): Promise<void> {
     const league = await this.leagueRepo.findById(leagueId);
     if (!league) {
@@ -94,6 +120,18 @@ export class LeagueService {
       throw new Error('Need at least 2 players to start league');
     }
 
+    // Calculate total rounds based on competition type
+    let totalRounds = 0;
+    let topCutSize = 0;
+
+    if (league.competitionType === 'SWISS' || league.competitionType === 'SWISS_WITH_TOP_CUT') {
+      totalRounds = this.calculateSwissRounds(registrations.length);
+      
+      if (league.competitionType === 'SWISS_WITH_TOP_CUT') {
+        topCutSize = league.topCutSize || this.calculateTopCutSize(registrations.length);
+      }
+    }
+
     // Create tournament
     const players = registrations.map(reg => ({
       id: reg.playerId,
@@ -101,9 +139,11 @@ export class LeagueService {
     }));
     await this.tournamentService.createTournament(leagueId, players);
 
-    // Update league status
+    // Update league with calculated values
     await this.leagueRepo.update(leagueId, {
       status: LeagueStatus.IN_PROGRESS,
+      totalRounds,
+      topCutSize: topCutSize > 0 ? topCutSize : league.topCutSize,
     });
 
     // Log the tournament start
@@ -118,9 +158,14 @@ export class LeagueService {
       newValue: JSON.stringify({ 
         status: LeagueStatus.IN_PROGRESS,
         playerCount: registrations.length,
+        totalRounds,
+        topCutSize,
       }),
-      description: `Started tournament with ${registrations.length} players`,
+      description: `Started tournament with ${registrations.length} players, ${totalRounds} Swiss rounds${topCutSize > 0 ? `, Top ${topCutSize} cut` : ''}`,
     });
+
+    // Automatically generate Round 1
+    await this.generateNextRound(leagueId);
   }
 
   async generateNextRound(leagueId: number): Promise<Pairing[]> {
@@ -241,6 +286,226 @@ export class LeagueService {
 
     // Update standings
     await this.updateStandings(match.leagueId);
+
+    // Check if round is complete and handle auto-progression
+    await this.checkRoundCompletion(match.leagueId);
+  }
+
+  /**
+   * Check if current round is complete and auto-advance or end tournament
+   */
+  private async checkRoundCompletion(leagueId: number): Promise<void> {
+    const league = await this.leagueRepo.findById(leagueId);
+    if (!league || (league.status !== LeagueStatus.IN_PROGRESS && league.status !== LeagueStatus.TOP_CUT)) {
+      return;
+    }
+
+    // Get current round matches
+    const currentRound = await this.roundRepo.findByLeagueAndRound(leagueId, league.currentRound);
+    if (!currentRound) {
+      return;
+    }
+
+    const matches = await this.matchRepo.findByRound(currentRound.id);
+    const allComplete = matches.every(m => m.isCompleted);
+
+    if (!allComplete) {
+      return; // Round not complete yet
+    }
+
+    // Round is complete - determine next action
+    if (league.status === LeagueStatus.TOP_CUT) {
+      // We're in top cut - check if it's the finals
+      const winners = matches.filter(m => m.winnerId).map(m => m.winnerId);
+      
+      if (winners.length === 1) {
+        // Finals complete - end tournament
+        await this.autoEndTournament(leagueId);
+      } else if (winners.length > 1) {
+        // Generate next round of top cut with winners
+        await this.generateTopCutNextRound(leagueId, winners);
+      }
+    } else {
+      // We're in Swiss rounds
+      const isSwissComplete = league.totalRounds && league.currentRound >= league.totalRounds;
+      const needsTopCut = league.competitionType === 'SWISS_WITH_TOP_CUT' && 
+                          league.hasTopCut === false && 
+                          isSwissComplete;
+
+      if (needsTopCut) {
+        // Start top cut
+        await this.startTopCut(leagueId);
+      } else if (isSwissComplete) {
+        // Swiss rounds complete, no top cut - end tournament
+        await this.autoEndTournament(leagueId);
+      }
+    }
+  }
+
+  /**
+   * Automatically end tournament (called by system, not user)
+   */
+  private async autoEndTournament(leagueId: number): Promise<void> {
+    const league = await this.leagueRepo.findById(leagueId);
+    if (!league) return;
+
+    const standings = await this.getStandings(leagueId);
+    const winner = standings[0];
+
+    await this.leagueRepo.update(leagueId, {
+      status: LeagueStatus.COMPLETED,
+    });
+
+    await this.auditLogRepo.create({
+      leagueId,
+      userId: 'SYSTEM',
+      username: 'Auto-End',
+      action: 'END_TOURNAMENT',
+      entityType: 'LEAGUE',
+      entityId: leagueId,
+      oldValue: JSON.stringify({ status: league.status }),
+      newValue: JSON.stringify({ 
+        status: LeagueStatus.COMPLETED,
+        winner: winner?.playerName || 'N/A',
+        winnerRecord: winner ? `${winner.wins}-${winner.losses}-${winner.draws}` : 'N/A',
+        totalRounds: league.currentRound,
+        playerCount: standings.length,
+      }),
+      description: `Tournament automatically ended. Winner: ${winner?.playerName || 'N/A'}`,
+    });
+
+    this.tournamentService.deleteTournament(leagueId);
+  }
+
+  /**
+   * Start top cut phase with single elimination bracket
+   */
+  private async startTopCut(leagueId: number): Promise<void> {
+    const league = await this.leagueRepo.findById(leagueId);
+    if (!league || !league.topCutSize) {
+      return;
+    }
+
+    // Get final standings from Swiss rounds
+    const standings = await this.getStandings(leagueId);
+    const topPlayers = standings.slice(0, league.topCutSize);
+
+    if (topPlayers.length < 2) {
+      // Not enough players for top cut, just end tournament
+      await this.autoEndTournament(leagueId);
+      return;
+    }
+
+    // Update league status to TOP_CUT
+    await this.leagueRepo.update(leagueId, {
+      status: LeagueStatus.TOP_CUT,
+      hasTopCut: true,
+    });
+
+    await this.auditLogRepo.create({
+      leagueId,
+      userId: 'SYSTEM',
+      username: 'Auto-TopCut',
+      action: 'START_TOURNAMENT',
+      entityType: 'LEAGUE',
+      entityId: leagueId,
+      oldValue: JSON.stringify({ status: LeagueStatus.IN_PROGRESS }),
+      newValue: JSON.stringify({ 
+        status: LeagueStatus.TOP_CUT,
+        topCutSize: topPlayers.length,
+      }),
+      description: `Started Top ${topPlayers.length} single elimination bracket`,
+    });
+
+    // Generate first round of top cut with seeded pairings
+    await this.generateTopCutRound(leagueId, topPlayers);
+  }
+
+  /**
+   * Generate top cut bracket round with seeded pairings (1 vs last, 2 vs second-to-last, etc.)
+   */
+  private async generateTopCutRound(leagueId: number, players: StandingsEntry[]): Promise<void> {
+    const league = await this.leagueRepo.findById(leagueId);
+    if (!league) {
+      throw new Error('League not found');
+    }
+
+    const nextRoundNumber = league.currentRound + 1;
+    
+    // Create round
+    const round = await this.roundRepo.create(leagueId, nextRoundNumber);
+
+    // Generate seeded pairings: 1 vs last, 2 vs second-to-last, etc.
+    const numMatches = Math.floor(players.length / 2);
+    
+    for (let i = 0; i < numMatches; i++) {
+      const highSeed = players[i];
+      const lowSeed = players[players.length - 1 - i];
+
+      // Get database player IDs
+      const player1 = await this.playerRepo.findByDiscordId(highSeed.playerId);
+      const player2 = await this.playerRepo.findByDiscordId(lowSeed.playerId);
+
+      if (player1 && player2) {
+        await this.matchRepo.create(
+          leagueId,
+          round.id,
+          player1.id,
+          player2.id,
+          i + 1,
+          false
+        );
+      }
+    }
+
+    // Update league current round
+    await this.leagueRepo.update(leagueId, {
+      currentRound: nextRoundNumber,
+    });
+  }
+
+  /**
+   * Generate next round of top cut with winners from previous round
+   */
+  private async generateTopCutNextRound(leagueId: number, winnerIds: (number | null | undefined)[]): Promise<void> {
+    const league = await this.leagueRepo.findById(leagueId);
+    if (!league) {
+      throw new Error('League not found');
+    }
+
+    // Filter out null/undefined winners
+    const validWinners = winnerIds.filter((id): id is number => id !== null && id !== undefined);
+    
+    if (validWinners.length < 2) {
+      // Not enough winners for next round, end tournament
+      await this.autoEndTournament(leagueId);
+      return;
+    }
+
+    const nextRoundNumber = league.currentRound + 1;
+    const round = await this.roundRepo.create(leagueId, nextRoundNumber);
+
+    // Pair winners sequentially (winner 1 vs winner 2, winner 3 vs winner 4, etc.)
+    const numMatches = Math.floor(validWinners.length / 2);
+    
+    for (let i = 0; i < numMatches; i++) {
+      const player1Id = validWinners[i * 2];
+      const player2Id = validWinners[i * 2 + 1];
+
+      await this.matchRepo.create(
+        leagueId,
+        round.id,
+        player1Id,
+        player2Id,
+        i + 1,
+        false
+      );
+    }
+
+    // Update league current round
+    await this.leagueRepo.update(leagueId, {
+      currentRound: nextRoundNumber,
+    });
   }
 
   async findPlayerActiveMatch(leagueId: number, discordId: string): Promise<any> {
