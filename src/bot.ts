@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, REST, Routes } from 'discord.js';
+import { Client, GatewayIntentBits, REST, Routes, Events } from 'discord.js';
 import * as dotenv from 'dotenv';
 import { commands } from './commands';
 import readyEvent from './events/ready';
@@ -31,8 +31,8 @@ const leagueService = LeagueService.getInstance();
 leagueService.setClient(client);
 
 // Register event handlers
-client.once('ready', (readyClient) => readyEvent.execute(readyClient));
-client.on('interactionCreate', (interaction) => interactionCreateEvent.execute(interaction));
+client.once(Events.ClientReady, (readyClient) => readyEvent.execute(readyClient));
+client.on(Events.InteractionCreate, (interaction) => interactionCreateEvent.execute(interaction));
 
 // Register slash commands
 async function registerCommands() {

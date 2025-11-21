@@ -62,8 +62,8 @@ timerService.setClient(client);
 const leagueService = leagueService_1.LeagueService.getInstance();
 leagueService.setClient(client);
 // Register event handlers
-client.once('ready', (readyClient) => ready_1.default.execute(readyClient));
-client.on('interactionCreate', (interaction) => interactionCreate_1.default.execute(interaction));
+client.once(discord_js_1.Events.ClientReady, (readyClient) => ready_1.default.execute(readyClient));
+client.on(discord_js_1.Events.InteractionCreate, (interaction) => interactionCreate_1.default.execute(interaction));
 // Register slash commands
 async function registerCommands() {
     const rest = new discord_js_1.REST().setToken(token);
