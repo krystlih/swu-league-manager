@@ -638,6 +638,21 @@ class LeagueService {
         });
         // Tournament will be cleaned up from memory
     }
+    async deleteLeague(leagueId) {
+        // Cancel all timers for this league
+        this.timerService.cancelLeagueTimers(leagueId);
+        // Delete tournament from memory
+        this.tournamentService.deleteTournament(leagueId);
+        // Delete all matches for this league
+        await this.matchRepo.deleteByLeague(leagueId);
+        // Delete all rounds for this league
+        await this.roundRepo.deleteByLeague(leagueId);
+        // Delete all registrations for this league
+        await this.registrationRepo.deleteByLeague(leagueId);
+        // Finally delete the league itself
+        await this.leagueRepo.delete(leagueId);
+        // Note: Audit logs are preserved and not deleted
+    }
     async endTournament(leagueId, userId, username) {
         const league = await this.leagueRepo.findById(leagueId);
         if (!league) {

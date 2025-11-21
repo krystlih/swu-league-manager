@@ -46,6 +46,14 @@ exports.leagueCommand = {
         .setRequired(true)
         .setAutocomplete(true)))
         .addSubcommand(subcommand => subcommand
+        .setName('delete')
+        .setDescription('[Creator Only] Permanently delete a league and all its data')
+        .addStringOption(option => option
+        .setName('league')
+        .setDescription('The league to delete')
+        .setRequired(true)
+        .setAutocomplete(true)))
+        .addSubcommand(subcommand => subcommand
         .setName('auditlog')
         .setDescription('[Creator Only] View audit log of league changes')
         .addStringOption(option => option
@@ -125,6 +133,24 @@ exports.leagueCommand = {
                 }
                 await leagueService.cancelLeague(league.id);
                 await interaction.reply(`League "${league.name}" has been cancelled.`);
+            }
+            else if (subcommand === 'delete') {
+                const leagueName = interaction.options.getString('league', true);
+                const league = await leagueService.getLeagueByName(interaction.guildId, leagueName);
+                if (!league) {
+                    await interaction.reply({ content: 'League not found.', ephemeral: true });
+                    return;
+                }
+                // Check if the user is the league creator
+                if (league.createdBy !== interaction.user.id) {
+                    await interaction.reply({
+                        content: 'Only the league creator can delete a league.',
+                        ephemeral: true
+                    });
+                    return;
+                }
+                await leagueService.deleteLeague(league.id);
+                await interaction.reply(`League "${league.name}" and all its data have been permanently deleted. Audit logs have been preserved.`);
             }
             else if (subcommand === 'auditlog') {
                 const leagueName = interaction.options.getString('league', true);
@@ -374,10 +400,18 @@ exports.leagueCommand = {
     async autocomplete(interaction) {
         try {
             const focusedValue = interaction.options.getFocused().toLowerCase();
+            const subcommand = interaction.options.getSubcommand();
             const leagues = await leagueService.getLeaguesByGuild(interaction.guildId);
+            // For delete command, show all leagues (including CANCELLED and COMPLETED)
+            // For other commands, exclude COMPLETED leagues
             const filtered = leagues
-                .filter(league => league.status !== 'COMPLETED' &&
-                league.name.toLowerCase().includes(focusedValue))
+                .filter(league => {
+                if (subcommand === 'delete') {
+                    return league.name.toLowerCase().includes(focusedValue);
+                }
+                return league.status !== 'COMPLETED' &&
+                    league.name.toLowerCase().includes(focusedValue);
+            })
                 .slice(0, 25)
                 .map(league => ({
                 name: `${league.name} - ${league.status}`,

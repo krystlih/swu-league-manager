@@ -65,9 +65,10 @@ exports.standingsCommand = {
                 }
                 // Get all leagues for this guild
                 const leagues = await leagueService.getLeaguesByGuild(guildId);
-                // Filter based on what the user is typing and exclude COMPLETED leagues
+                // Filter based on what the user is typing and exclude COMPLETED and CANCELLED leagues
                 const filtered = leagues
                     .filter((league) => league.status !== 'COMPLETED' &&
+                    league.status !== 'CANCELLED' &&
                     league.name.toLowerCase().includes(focusedOption.value.toLowerCase()))
                     .slice(0, 25); // Discord limits to 25 choices
                 await interaction.respond(filtered.map((league) => ({

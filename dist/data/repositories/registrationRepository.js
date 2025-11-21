@@ -67,6 +67,11 @@ class RegistrationRepository {
             data: { isActive: false },
         });
     }
+    async deleteByLeague(leagueId) {
+        await prismaClient_1.prisma.registration.deleteMany({
+            where: { leagueId },
+        });
+    }
     async findAll() {
         return prismaClient_1.prisma.registration.findMany({
             include: { player: true, league: true },

@@ -100,6 +100,12 @@ export class MatchRepository {
     });
   }
 
+  async deleteByLeague(leagueId: number): Promise<void> {
+    await prisma.match.deleteMany({
+      where: { leagueId },
+    });
+  }
+
   async findAll(): Promise<Match[]> {
     return prisma.match.findMany({
       include: {

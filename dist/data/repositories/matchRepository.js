@@ -77,6 +77,11 @@ class MatchRepository {
             where: { roundId },
         });
     }
+    async deleteByLeague(leagueId) {
+        await prismaClient_1.prisma.match.deleteMany({
+            where: { leagueId },
+        });
+    }
     async findAll() {
         return prismaClient_1.prisma.match.findMany({
             include: {

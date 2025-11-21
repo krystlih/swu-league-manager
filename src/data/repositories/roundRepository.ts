@@ -35,6 +35,12 @@ export class RoundRepository {
     });
   }
 
+  async deleteByLeague(leagueId: number): Promise<void> {
+    await prisma.round.deleteMany({
+      where: { leagueId },
+    });
+  }
+
   async findById(id: number): Promise<Round | null> {
     return prisma.round.findUnique({
       where: { id },

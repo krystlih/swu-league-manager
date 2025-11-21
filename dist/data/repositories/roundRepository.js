@@ -32,6 +32,11 @@ class RoundRepository {
             where: { id },
         });
     }
+    async deleteByLeague(leagueId) {
+        await prismaClient_1.prisma.round.deleteMany({
+            where: { leagueId },
+        });
+    }
     async findById(id) {
         return prismaClient_1.prisma.round.findUnique({
             where: { id },

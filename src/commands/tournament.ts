@@ -714,7 +714,7 @@ export const tournamentCommand = {
         const leagues = await leagueService.getLeaguesByGuild(guildId);
         
         // For bracket command, allow completed leagues with Top Cut
-        // For other commands, exclude completed leagues
+        // For other commands, exclude completed and cancelled leagues
         const filtered = leagues
           .filter(league => {
             const matchesSearch = league.name.toLowerCase().includes(focusedOption.value.toLowerCase());
@@ -725,8 +725,10 @@ export const tournamentCommand = {
                      league.hasTopCut && 
                      (league.status === 'TOP_CUT' || league.status === 'COMPLETED');
             } else {
-              // For other commands, exclude COMPLETED leagues
-              return matchesSearch && league.status !== 'COMPLETED';
+              // For other commands, exclude COMPLETED and CANCELLED leagues
+              return matchesSearch && 
+                     league.status !== 'COMPLETED' && 
+                     league.status !== 'CANCELLED';
             }
           })
           .slice(0, 25); // Discord limits to 25 choices

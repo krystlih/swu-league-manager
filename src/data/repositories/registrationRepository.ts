@@ -74,6 +74,12 @@ export class RegistrationRepository {
     });
   }
 
+  async deleteByLeague(leagueId: number): Promise<void> {
+    await prisma.registration.deleteMany({
+      where: { leagueId },
+    });
+  }
+
   async findAll(): Promise<Registration[]> {
     return prisma.registration.findMany({
       include: { player: true, league: true },
