@@ -188,9 +188,6 @@ export class LeagueService {
       }),
       description: `Started tournament with ${registrations.length} players, ${totalRounds} Swiss rounds${topCutSize > 0 ? `, Top ${topCutSize} cut` : ''}`,
     });
-
-    // Automatically generate Round 1
-    await this.generateNextRound(leagueId);
   }
 
   async generateNextRound(leagueId: number): Promise<Pairing[]> {
