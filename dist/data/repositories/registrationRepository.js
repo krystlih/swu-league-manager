@@ -67,5 +67,10 @@ class RegistrationRepository {
             data: { isActive: false },
         });
     }
+    async findAll() {
+        return prismaClient_1.prisma.registration.findMany({
+            include: { player: true, league: true },
+        });
+    }
 }
 exports.RegistrationRepository = RegistrationRepository;

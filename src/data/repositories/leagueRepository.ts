@@ -54,4 +54,10 @@ export class LeagueRepository {
       where: { id },
     });
   }
+
+  async findAll(): Promise<League[]> {
+    return prisma.league.findMany({
+      orderBy: { createdAt: 'desc' },
+    }) as any;
+  }
 }

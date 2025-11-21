@@ -31,4 +31,10 @@ export class PlayerRepository {
       data: { username },
     });
   }
+
+  async findById(id: number): Promise<Player | null> {
+    return prisma.player.findUnique({
+      where: { id },
+    });
+  }
 }

@@ -32,5 +32,10 @@ class RoundRepository {
             where: { id },
         });
     }
+    async findById(id) {
+        return prismaClient_1.prisma.round.findUnique({
+            where: { id },
+        });
+    }
 }
 exports.RoundRepository = RoundRepository;

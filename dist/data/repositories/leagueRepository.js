@@ -50,5 +50,10 @@ class LeagueRepository {
             where: { id },
         });
     }
+    async findAll() {
+        return prismaClient_1.prisma.league.findMany({
+            orderBy: { createdAt: 'desc' },
+        });
+    }
 }
 exports.LeagueRepository = LeagueRepository;

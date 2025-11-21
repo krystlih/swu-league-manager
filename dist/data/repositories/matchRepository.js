@@ -77,5 +77,14 @@ class MatchRepository {
             where: { roundId },
         });
     }
+    async findAll() {
+        return prismaClient_1.prisma.match.findMany({
+            include: {
+                player1: true,
+                player2: true,
+                league: true,
+            },
+        });
+    }
 }
 exports.MatchRepository = MatchRepository;

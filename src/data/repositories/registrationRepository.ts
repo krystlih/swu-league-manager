@@ -73,4 +73,10 @@ export class RegistrationRepository {
       data: { isActive: false },
     });
   }
+
+  async findAll(): Promise<Registration[]> {
+    return prisma.registration.findMany({
+      include: { player: true, league: true },
+    });
+  }
 }

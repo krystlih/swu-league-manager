@@ -29,5 +29,10 @@ class PlayerRepository {
             data: { username },
         });
     }
+    async findById(id) {
+        return prismaClient_1.prisma.player.findUnique({
+            where: { id },
+        });
+    }
 }
 exports.PlayerRepository = PlayerRepository;

@@ -34,4 +34,10 @@ export class RoundRepository {
       where: { id },
     });
   }
+
+  async findById(id: number): Promise<Round | null> {
+    return prisma.round.findUnique({
+      where: { id },
+    });
+  }
 }

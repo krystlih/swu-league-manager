@@ -8,6 +8,7 @@ const manualRegister_1 = require("./manualRegister");
 const tournament_1 = require("./tournament");
 const standings_1 = require("./standings");
 const history_1 = require("./history");
+const stats_1 = require("./stats");
 exports.commands = new discord_js_1.Collection();
 exports.commands.set(league_1.leagueCommand.data.name, league_1.leagueCommand);
 exports.commands.set(registration_1.registrationCommand.data.name, registration_1.registrationCommand);
@@ -15,3 +16,4 @@ exports.commands.set(manualRegister_1.manualRegisterCommand.data.name, manualReg
 exports.commands.set(tournament_1.tournamentCommand.data.name, tournament_1.tournamentCommand);
 exports.commands.set(standings_1.standingsCommand.data.name, standings_1.standingsCommand);
 exports.commands.set(history_1.historyCommand.data.name, history_1.historyCommand);
+exports.commands.set(stats_1.statsCommand.data.name, stats_1.statsCommand);

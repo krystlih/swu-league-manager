@@ -99,4 +99,14 @@ export class MatchRepository {
       where: { roundId },
     });
   }
+
+  async findAll(): Promise<Match[]> {
+    return prisma.match.findMany({
+      include: {
+        player1: true,
+        player2: true,
+        league: true,
+      },
+    });
+  }
 }
