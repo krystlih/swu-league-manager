@@ -1,16 +1,119 @@
-# SWU League Manager - CLI Monitor Tool
+# SWU League Manager - CLI Monitor Tools
 
-A command-line interface tool for monitoring and inspecting the SWU League Manager database in real-time.
+Command-line interface tools for monitoring and inspecting the SWU League Manager database.
 
-## Usage
+## Available Monitors
 
-Run the monitor tool with:
-
+### 1. Static Monitor (Original)
 ```bash
 npm run monitor
 ```
+Interactive menu-based tool for detailed inspection. Best for viewing historical data and detailed reports.
 
-## Features
+### 2. Real-Time Live Monitor (NEW! ⚡)
+```bash
+npm run monitor:live
+```
+**Auto-refreshing dashboard that updates every 5 seconds!** Perfect for monitoring active tournaments in real-time.
+
+---
+
+## Real-Time Live Monitor Features
+
+### 🎮 Live Dashboard
+- **Auto-refreshes every 5 seconds**
+- Shows all active tournaments at a glance
+- Real-time match completion progress bars
+- Recent match results stream
+- Latest player registrations
+- Visual indicators with colors and emojis
+
+### 🏆 Active Tournaments View
+- Live view of all tournaments in progress
+- Current standings (Top 3)
+- Pending matches list
+- Match completion rates
+- Progress bars for each tournament
+- Updates automatically every 5 seconds
+
+### 📊 Activity Stream
+- Combined feed of all recent activity
+- Match reports with timestamps
+- Player registrations
+- New league creations
+- Sorted by recency with "time ago" formatting
+- Auto-refreshing every 5 seconds
+
+### ⏱️ Match Status Monitor
+- Real-time match completion tracking
+- Visual progress bars per tournament
+- Table-by-table status display
+- Highlights pending vs completed matches
+- Perfect for tournament directors
+
+### 📈 Database Statistics
+- Real-time counts and metrics
+- League statistics
+- Match completion rates
+- Player activity
+- Updates every 5 seconds
+
+## Usage
+
+### Real-Time Monitor Controls
+- **Press 1-5**: Select a view
+- **Press 'q'**: Return to menu from any view
+- **Press '0'**: Exit monitor
+- **Ctrl+C**: Force exit
+
+### Views Auto-Refresh Every 5 Seconds!
+Once you select a view (1-5), it will automatically refresh without any input needed. Just watch the live data!
+
+### Color Indicators
+- 🟢 **Green**: Completed/Active
+- 🟡 **Yellow**: Pending/Registration
+- 🔵 **Cyan**: Top Cut
+- 🔴 **Red**: Cancelled
+- ⏳ **Yellow Clock**: Pending matches
+- ✓ **Green Check**: Completed matches
+
+## Example Output (Live Dashboard)
+
+```
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                        LIVE TOURNAMENT DASHBOARD                              ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+Last Update: 11/21/2025, 3:15:42 PM                    Press 'q' to return to menu
+
+▼ ACTIVE TOURNAMENTS (3)
+────────────────────────────────────────────────────────────────────────────────
+
+  1. Friday Night Gaming
+     ● IN_PROGRESS │ Round 3 │ 16 players
+     [██████████████████░░] 90% 18/20 matches
+
+  2. Weekend Showdown
+     ● TOP_CUT │ Round 1 │ 8 players
+     [████████████░░░░░░░░] 60% 3/5 matches
+     ⚠ 2 pending matches
+
+▼ RECENT MATCH RESULTS
+────────────────────────────────────────────────────────────────────────────────
+  ✓ PlayerOne vs PlayerTwo (2-1-0)
+    Friday Night Gaming - Round 3 - 2m ago
+  ✓ PlayerThree vs PlayerFour (2-0-0)
+    Friday Night Gaming - Round 3 - 5m ago
+
+▼ RECENT REGISTRATIONS
+────────────────────────────────────────────────────────────────────────────────
+  + NewPlayer → Weekend Showdown (1m ago)
+  + AnotherPlayer → Friday Night Gaming (3m ago)
+
+────────────────────────────────────────────────────────────────────────────────
+Total Leagues: 45 | Pending Matches: 7 | Auto-refresh: 5s
+```
+
+## Static Monitor Features
 
 ### 1. View Active Leagues
 - Lists all leagues in REGISTRATION, IN_PROGRESS, or TOP_CUT status

@@ -7,7 +7,8 @@
     "start": "ts-node src/bot.ts",
     "build": "tsc",
     "dev": "ts-node-dev src/bot.ts",
-    "monitor": "ts-node src/cli/monitor.ts"
+    "monitor": "ts-node src/cli/monitor.ts",
+    "monitor:live": "ts-node src/cli/monitor-live.ts"
   },
   "dependencies": {
     "discord.js": "^14.0.0",
