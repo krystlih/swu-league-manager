@@ -76,16 +76,8 @@ export class SwissPairingGenerator {
         }
       }
       
-      // Mark this player as paired (with bye)
+      // Mark this player as paired (with bye) - we'll add the bye pairing at the end
       paired.add(byePlayerId);
-      const byePlayer = sortedPlayers.find(p => p.id === byePlayerId)!;
-      pairings.push({
-        player1Id: byePlayer.id,
-        player1Name: byePlayer.name,
-        player2Id: null,
-        player2Name: null,
-        isBye: true,
-      });
     }
     
     // Second pass: pair remaining players
@@ -116,18 +108,27 @@ export class SwissPairingGenerator {
           player2Name: player2.name,
           isBye: false,
         });
-      } else {
-        // This shouldn't happen if our bye logic is correct
-        // But handle it as a fallback
+      } else if (!paired.has(player1.id)) {
+        // Player can't find an opponent and isn't already paired
+        // This could happen in edge cases - give them a bye
         paired.add(player1.id);
-        pairings.push({
-          player1Id: player1.id,
-          player1Name: player1.name,
-          player2Id: null,
-          player2Name: null,
-          isBye: true,
-        });
+        // We'll track this bye player ID if we didn't already assign one
+        if (byePlayerId === null) {
+          byePlayerId = player1.id;
+        }
       }
+    }
+    
+    // Add the bye pairing at the end (last table)
+    if (byePlayerId !== null) {
+      const byePlayer = sortedPlayers.find(p => p.id === byePlayerId)!;
+      pairings.push({
+        player1Id: byePlayer.id,
+        player1Name: byePlayer.name,
+        player2Id: null,
+        player2Name: null,
+        isBye: true,
+      });
     }
     
     return pairings;
