@@ -446,10 +446,13 @@ class LeagueService {
             catch (error) {
                 console.error('Failed to post final standings:', error);
                 // If channel access fails, clear the announcement channel for this league
-                if (error instanceof Error && error.message.includes('Missing Access')) {
+                const errorCode = error?.code;
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                if (errorCode === 50001 || errorMessage.includes('Missing Access') || errorMessage.includes('Unknown Channel')) {
                     console.log('Clearing invalid announcement channel from league...');
                     try {
                         await this.leagueRepo.update(leagueId, { announcementChannelId: null });
+                        console.log('Announcement channel cleared successfully');
                     }
                     catch (updateError) {
                         console.error('Failed to clear announcement channel:', updateError);

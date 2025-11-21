@@ -219,9 +219,12 @@ export const tournamentCommand = {
         // Store announcement channel for timer announcements
         // Set announcement channel to current channel if not already set
         if (!league.announcementChannelId) {
+          console.log(`[START] Setting announcement channel - Guild: ${interaction.guildId}, Channel: ${interaction.channelId}`);
           await leagueService.updateLeague(leagueId, {
             announcementChannelId: interaction.channelId
           });
+        } else {
+          console.log(`[START] Announcement channel already set: ${league.announcementChannelId}`);
         }
 
         await leagueService.startLeague(
