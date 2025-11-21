@@ -147,6 +147,10 @@ class RoundTimerService {
         }
         catch (error) {
             console.error('Error sending timer announcement:', error);
+            // If it's a Missing Access error, the channel may be invalid - log it
+            if (error instanceof Error && (error.message.includes('Missing Access') || error.message.includes('Unknown Channel'))) {
+                console.warn(`Channel ${channelId} in guild ${guildId} is no longer accessible. Consider updating the announcement channel.`);
+            }
         }
     }
 }

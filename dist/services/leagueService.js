@@ -445,6 +445,16 @@ class LeagueService {
             }
             catch (error) {
                 console.error('Failed to post final standings:', error);
+                // If channel access fails, clear the announcement channel for this league
+                if (error instanceof Error && error.message.includes('Missing Access')) {
+                    console.log('Clearing invalid announcement channel from league...');
+                    try {
+                        await this.leagueRepo.update(leagueId, { announcementChannelId: null });
+                    }
+                    catch (updateError) {
+                        console.error('Failed to clear announcement channel:', updateError);
+                    }
+                }
             }
         }
         else {
