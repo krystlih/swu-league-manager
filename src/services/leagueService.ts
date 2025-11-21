@@ -302,6 +302,9 @@ export class LeagueService {
       currentRound: nextRoundNumber,
     });
 
+    // Check if round is immediately complete (e.g., if all matches are byes)
+    await this.checkRoundCompletion(leagueId);
+
     return pairings;
   }
 
