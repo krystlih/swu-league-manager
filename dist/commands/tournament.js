@@ -565,19 +565,21 @@ exports.tournamentCommand = {
                     .filter((match) => {
                     const player1Name = match.player1?.username || 'Unknown';
                     const player2Name = match.player2?.username || 'BYE';
-                    const searchStr = `${player1Name} ${player2Name} Round ${match.roundNumber}`.toLowerCase();
+                    const roundNum = match.round?.roundNumber || '?';
+                    const searchStr = `${player1Name} ${player2Name} Round ${roundNum}`.toLowerCase();
                     return searchStr.includes(focusedOption.value.toLowerCase());
                 })
                     .slice(0, 25)
                     .map((match) => {
                     const player1Name = match.player1?.username || 'Unknown';
                     const player2Name = match.player2?.username || 'BYE';
+                    const roundNum = match.round?.roundNumber || '?';
                     const status = match.isCompleted ? '✅' : '⏳';
                     const result = match.isCompleted
                         ? ` (${match.player1Wins || 0}-${match.player2Wins || 0})`
                         : '';
                     return {
-                        name: `R${match.roundNumber} ${status} ${player1Name} vs ${player2Name}${result}`.slice(0, 100),
+                        name: `R${roundNum} ${status} ${player1Name} vs ${player2Name}${result}`.slice(0, 100),
                         value: match.id.toString()
                     };
                 });
