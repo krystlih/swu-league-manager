@@ -198,7 +198,7 @@ exports.leagueCommand = {
                     .setDescription('Quick reference for running Star Wars Unlimited tournaments')
                     .addFields({
                     name: '🎮 Quick Start',
-                    value: '`/league create` → `/registration join` → `/tournament start` → Report results → Auto-advance!',
+                    value: '`/league create` → `/register` → `/tournament start` → Report results → Auto-advance!',
                     inline: false
                 }, {
                     name: '📋 League Commands',
@@ -210,9 +210,8 @@ exports.leagueCommand = {
                     inline: false
                 }, {
                     name: '👥 Registration',
-                    value: '`/registration join` - Join tournament\n' +
-                        '`/registration list` - See players\n' +
-                        '`/registration leave` - Leave before start',
+                    value: '`/register` - Join tournament\n' +
+                        '`/manualregister` - Register a user [Creator]',
                     inline: false
                 }, {
                     name: '🎯 Tournament',

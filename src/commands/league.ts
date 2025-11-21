@@ -256,7 +256,7 @@ export const leagueCommand = {
           .addFields(
             {
               name: '🎮 Quick Start',
-              value: '`/league create` → `/registration join` → `/tournament start` → Report results → Auto-advance!',
+              value: '`/league create` → `/register` → `/tournament start` → Report results → Auto-advance!',
               inline: false
             },
             {
@@ -270,9 +270,8 @@ export const leagueCommand = {
             },
             {
               name: '👥 Registration',
-              value: '`/registration join` - Join tournament\n' +
-                '`/registration list` - See players\n' +
-                '`/registration leave` - Leave before start',
+              value: '`/register` - Join tournament\n' +
+                '`/manualregister` - Register a user [Creator]',
               inline: false
             },
             {
