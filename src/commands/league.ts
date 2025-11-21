@@ -456,10 +456,10 @@ export const leagueCommand = {
 
         try {
           await interaction.user.send({ embeds: [embed] });
-          await interaction.reply({ content: 'I\'ve sent you a DM with the complete league system guide!', ephemeral: true });
+          await interaction.reply({ content: 'I\'ve sent you a DM with the complete league system guide!', flags: 64 });
         } catch (dmError) {
           // If DM fails (user has DMs disabled), fall back to ephemeral message
-          await interaction.reply({ embeds: [embed], ephemeral: true });
+          await interaction.reply({ embeds: [embed], flags: 64 });
         }
       }
     } catch (error) {
