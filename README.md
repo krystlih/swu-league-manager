@@ -78,6 +78,7 @@ DATABASE_URL="file:./dev.db"
 - `/tournament pairings` - View current round matchups
 - `/tournament drop` - Drop from active tournament
 - `/tournament end` - Manually end tournament (creator only)
+- `/tournament bracket` - View Top Cut elimination bracket
 
 ### Creator Tools
 - `/tournament findmatch` - Search for matches by player
@@ -220,6 +221,14 @@ Core entities with relationships:
 - Top Cut sizes determined automatically
 - Tournaments auto-advance through Top Cut brackets
 - Tournaments auto-end when complete
+
+### Top Cut Bracket Visualization
+- ASCII art elimination brackets for Discord
+- Visual display of Quarterfinals, Semifinals, and Finals
+- Winner indicators (►) for completed matches
+- Support for Top 2, Top 4, and Top 8 brackets
+- View live brackets during Top Cut or past brackets from completed tournaments
+- Automatic bracket generation based on seeding (1st vs last, 2nd vs 2nd-last, etc.)
 
 ### Match Result System
 - Results recalculated from raw match data

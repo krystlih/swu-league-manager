@@ -306,6 +306,16 @@ export const leagueCommand = {
               inline: false
             },
             {
+              name: '🏆 Bracket Visualization',
+              value: '**Command:** `/tournament bracket`\n' +
+                '• View visual Top Cut elimination bracket\n' +
+                '• Shows Quarterfinals, Semifinals, and Finals\n' +
+                '• Displays match winners with ► indicator\n' +
+                '• Works for Top 2, Top 4, and Top 8 brackets\n' +
+                '• View past brackets from completed tournaments',
+              inline: false
+            },
+            {
               name: '🔧 League Creator Tools',
               value: '**Find Match:** `/tournament findmatch`\n' +
                 '• Search for matches by player name\n' +

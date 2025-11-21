@@ -3,7 +3,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.tournamentCommand = void 0;
 const discord_js_1 = require("discord.js");
 const leagueService_1 = require("../services/leagueService");
+const matchRepository_1 = require("../data/repositories/matchRepository");
+const registrationRepository_1 = require("../data/repositories/registrationRepository");
+const bracketVisualizer_1 = require("../utils/bracketVisualizer");
 const leagueService = new leagueService_1.LeagueService();
+const matchRepository = new matchRepository_1.MatchRepository();
+const registrationRepository = new registrationRepository_1.RegistrationRepository();
 exports.tournamentCommand = {
     data: new discord_js_1.SlashCommandBuilder()
         .setName('tournament')
@@ -107,6 +112,14 @@ exports.tournamentCommand = {
         .addSubcommand(subcommand => subcommand
         .setName('end')
         .setDescription('[Creator Only] End the tournament and announce final standings')
+        .addStringOption(option => option
+        .setName('league')
+        .setDescription('Select the league')
+        .setRequired(true)
+        .setAutocomplete(true)))
+        .addSubcommand(subcommand => subcommand
+        .setName('bracket')
+        .setDescription('View Top Cut elimination bracket')
         .addStringOption(option => option
         .setName('league')
         .setDescription('Select the league')
@@ -376,6 +389,80 @@ exports.tournamentCommand = {
                 embed.setTimestamp();
                 await interaction.reply({ embeds: [embed] });
             }
+            else if (subcommand === 'bracket') {
+                // Check if league has Top Cut
+                if (!league.hasTopCut) {
+                    await interaction.reply({
+                        content: 'This tournament does not have a Top Cut bracket.',
+                        ephemeral: true
+                    });
+                    return;
+                }
+                // Check if Top Cut has started
+                if (league.status !== 'TOP_CUT' && league.status !== 'COMPLETED') {
+                    await interaction.reply({
+                        content: 'The Top Cut bracket has not started yet. It will begin automatically after the Swiss rounds are complete.',
+                        ephemeral: true
+                    });
+                    return;
+                }
+                // Validate Top Cut size
+                if (!league.topCutSize || ![2, 4, 8].includes(league.topCutSize)) {
+                    await interaction.reply({
+                        content: 'Invalid Top Cut size. Must be 2, 4, or 8.',
+                        ephemeral: true
+                    });
+                    return;
+                }
+                const totalRounds = league.totalRounds || 0;
+                // Get all matches for the league
+                const allMatches = await matchRepository.findByLeague(leagueId);
+                // Filter to Top Cut matches only (rounds after Swiss)
+                const topCutMatches = allMatches.filter((m) => m.roundNumber > totalRounds);
+                if (topCutMatches.length === 0) {
+                    await interaction.reply({
+                        content: 'No Top Cut matches have been created yet.',
+                        ephemeral: true
+                    });
+                    return;
+                }
+                // Get all registrations to map player IDs to names
+                const registrations = await registrationRepository.findByLeague(leagueId);
+                const playerMap = new Map(registrations.map((r) => [r.playerId, r.playerName]));
+                const bracketMatches = topCutMatches.map((match, index) => {
+                    const player1Name = playerMap.get(match.player1Id) || 'Unknown Player';
+                    const player2Name = playerMap.get(match.player2Id) || 'Unknown Player';
+                    let winner;
+                    if (match.winnerId) {
+                        winner = match.winnerId === match.player1Id ? player1Name : player2Name;
+                    }
+                    // Calculate relative round number (1, 2, 3) for Top Cut
+                    const relativeRound = match.roundNumber - totalRounds;
+                    return {
+                        player1: player1Name,
+                        player2: player2Name,
+                        winner,
+                        isComplete: match.player1Wins !== null && match.player2Wins !== null,
+                        roundNumber: relativeRound,
+                        matchNumber: match.tableNumber,
+                    };
+                });
+                // Generate bracket based on Top Cut size
+                let bracketString;
+                if (league.topCutSize === 8) {
+                    bracketString = (0, bracketVisualizer_1.generateTop8Bracket)(bracketMatches);
+                }
+                else if (league.topCutSize === 4) {
+                    bracketString = (0, bracketVisualizer_1.generateTop4Bracket)(bracketMatches);
+                }
+                else {
+                    bracketString = (0, bracketVisualizer_1.generateTop2Bracket)(bracketMatches);
+                }
+                // Send the bracket
+                await interaction.reply({
+                    content: `**${league.name} - Top ${league.topCutSize} Bracket**\n${bracketString}`,
+                });
+            }
         }
         catch (error) {
             console.error('Error executing tournament command:', error);
@@ -388,6 +475,7 @@ exports.tournamentCommand = {
     async autocomplete(interaction) {
         try {
             const focusedOption = interaction.options.getFocused(true);
+            const subcommand = interaction.options.getSubcommand();
             if (focusedOption.name === 'league') {
                 const guildId = interaction.guildId;
                 if (!guildId) {
@@ -396,10 +484,22 @@ exports.tournamentCommand = {
                 }
                 // Get all leagues for this guild
                 const leagues = await leagueService.getLeaguesByGuild(guildId);
-                // Filter based on what the user is typing and exclude COMPLETED leagues
+                // For bracket command, allow completed leagues with Top Cut
+                // For other commands, exclude completed leagues
                 const filtered = leagues
-                    .filter(league => league.status !== 'COMPLETED' &&
-                    league.name.toLowerCase().includes(focusedOption.value.toLowerCase()))
+                    .filter(league => {
+                    const matchesSearch = league.name.toLowerCase().includes(focusedOption.value.toLowerCase());
+                    if (subcommand === 'bracket') {
+                        // Allow TOP_CUT and COMPLETED leagues that have Top Cut
+                        return matchesSearch &&
+                            league.hasTopCut &&
+                            (league.status === 'TOP_CUT' || league.status === 'COMPLETED');
+                    }
+                    else {
+                        // For other commands, exclude COMPLETED leagues
+                        return matchesSearch && league.status !== 'COMPLETED';
+                    }
+                })
                     .slice(0, 25); // Discord limits to 25 choices
                 await interaction.respond(filtered.map(league => ({
                     name: `${league.name} (${league.status})`,
