@@ -241,9 +241,14 @@ export const tournamentCommand = {
         
         await interaction.reply(`League "${league.name}" has been started! Use /tournament nextround to generate round 1 pairings.`);
       } else if (subcommand === 'nextround') {
+        // Cancel timer for current round before generating next round
+        if (league.currentRound > 0) {
+          timerService.cancelRoundTimer(leagueId, league.currentRound);
+        }
+
         const pairings = await leagueService.generateNextRound(leagueId);
 
-        // Start round timer if configured
+        // Start round timer for new round if configured
         const updatedLeague = await leagueService.getLeague(leagueId);
         if (updatedLeague) {
           await timerService.startRoundTimer(
@@ -261,9 +266,14 @@ export const tournamentCommand = {
 
         pairings.forEach((pairing, index) => {
           const player2Name = pairing.player2Name || 'BYE';
+          const isBye = !pairing.player2Name;
+          const matchInfo = isBye 
+            ? `${pairing.player1Name} vs ${player2Name} ✅ (Auto-completed: 2-0-0)`
+            : `${pairing.player1Name} vs ${player2Name}`;
+          
           embed.addFields({
             name: `Table ${index + 1}`,
-            value: `${pairing.player1Name} vs ${player2Name}`,
+            value: matchInfo,
           });
         });
 
@@ -333,10 +343,13 @@ export const tournamentCommand = {
 
         matches.forEach(match => {
           const player2Name = match.player2 ? match.player2.username : 'BYE';
+          const isBye = !match.player2;
           const status = match.isCompleted ? '✅' : '⏳';
+          const byeNote = isBye && match.isCompleted ? ' (Auto-completed: 2-0-0)' : '';
+          
           embed.addFields({
             name: `Table ${match.tableNumber} ${status}`,
-            value: `${match.player1.username} vs ${player2Name}`,
+            value: `${match.player1.username} vs ${player2Name}${byeNote}`,
           });
         });
 

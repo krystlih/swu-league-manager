@@ -163,8 +163,9 @@ exports.leagueCommand = {
                         '• Choose a **name** for your league\n' +
                         '• Specify the **format** (e.g., Premier, Twin Suns, Limited)\n' +
                         '• Select **competition type** (Swiss, Swiss with Top Cut, etc.)\n' +
+                        '• **Optional:** Set **rounds** (if not set, auto-calculated)\n' +
                         '• **Optional:** Set **round timer** (10-180 minutes)\n' +
-                        '• **Automatic round calculation** based on player count\n' +
+                        '• **Automatic round calculation** based on player count if rounds not specified\n' +
                         '• **Automatic top cut size** for Swiss with Top Cut format\n' +
                         '• League starts in REGISTRATION status',
                     inline: false
@@ -325,7 +326,8 @@ exports.leagueCommand = {
                 }, {
                     name: '🎯 Tips & Features',
                     value: '• **Autocomplete everywhere** - start typing to filter leagues\n' +
-                        '• **Automatic round calculation** - Swiss rounds based on player count\n' +
+                        '• **Automatic round calculation** - Swiss rounds based on player count (or manual override)\n' +
+                        '• **Round limit enforcement** - Cannot exceed defined round count\n' +
                         '• **Automatic tournament progression** - Top Cut advances automatically\n' +
                         '• **Match result recalculation** - Standings rebuild from match data\n' +
                         '• **Creator-only controls** - Start, modify, repair, end commands\n' +

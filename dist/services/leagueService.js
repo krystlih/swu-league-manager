@@ -105,11 +105,14 @@ class LeagueService {
         if (registrations.length < 2) {
             throw new Error('Need at least 2 players to start league');
         }
-        // Calculate total rounds based on competition type
-        let totalRounds = 0;
+        // Calculate total rounds based on competition type (if not already set)
+        let totalRounds = league.totalRounds || 0;
         let topCutSize = 0;
         if (league.competitionType === 'SWISS' || league.competitionType === 'SWISS_WITH_TOP_CUT') {
-            totalRounds = this.calculateSwissRounds(registrations.length);
+            // Use provided totalRounds if available, otherwise calculate based on player count
+            if (!totalRounds) {
+                totalRounds = this.calculateSwissRounds(registrations.length);
+            }
             if (league.competitionType === 'SWISS_WITH_TOP_CUT') {
                 topCutSize = league.topCutSize || this.calculateTopCutSize(registrations.length);
             }
@@ -120,10 +123,10 @@ class LeagueService {
             name: reg.player?.username || 'Unknown',
         }));
         await this.tournamentService.createTournament(leagueId, players);
-        // Update league with calculated values
+        // Update league with calculated values (only if they weren't already set)
         await this.leagueRepo.update(leagueId, {
             status: types_1.LeagueStatus.IN_PROGRESS,
-            totalRounds,
+            totalRounds: totalRounds || league.totalRounds,
             topCutSize: topCutSize > 0 ? topCutSize : league.topCutSize,
         });
         // Log the tournament start
@@ -173,8 +176,18 @@ class LeagueService {
                 }
             }
         }
-        // Generate new round
+        // Check if we've reached the total rounds limit
         const nextRoundNumber = league.currentRound + 1;
+        if (league.totalRounds && nextRoundNumber > league.totalRounds) {
+            // Swiss rounds are complete, check if we need Top Cut
+            if (league.competitionType === 'SWISS_WITH_TOP_CUT' && !league.hasTopCut) {
+                throw new Error('Swiss rounds complete. Top Cut will start automatically.');
+            }
+            else {
+                throw new Error('All rounds are complete. Tournament will end automatically.');
+            }
+        }
+        // Generate new round
         const pairings = await this.tournamentService.generatePairings(leagueId);
         // Check if round already exists (in case of retry)
         let round = await this.roundRepo.findByLeagueAndRound(leagueId, nextRoundNumber);
@@ -196,7 +209,45 @@ class LeagueService {
                 ? await this.tournamentService.getDatabasePlayerId(leagueId, pairing.player2Id)
                 : null;
             if (player1DbId) {
-                await this.matchRepo.create(leagueId, round.id, player1DbId, player2DbId ?? null, i + 1, pairing.isBye);
+                const match = await this.matchRepo.create(leagueId, round.id, player1DbId, player2DbId ?? null, i + 1, pairing.isBye);
+                // If it's a bye, automatically submit 2-0-0 result
+                if (pairing.isBye && match) {
+                    await this.matchRepo.update(match.id, {
+                        player1Wins: 2,
+                        player2Wins: 0,
+                        draws: 0,
+                        winnerId: player1DbId,
+                        isDraw: false,
+                        isCompleted: true,
+                    });
+                    // Update registration standings in database
+                    const registration = await this.registrationRepo.findByLeagueAndPlayer(leagueId, player1DbId);
+                    if (registration) {
+                        await this.registrationRepo.update(registration.id, {
+                            wins: registration.wins + 1,
+                            matchPoints: registration.matchPoints + 3,
+                            gamePoints: registration.gamePoints + 6, // 2 game wins * 3 points each
+                        });
+                    }
+                    // Log the automatic bye result
+                    await this.auditLogRepo.create({
+                        leagueId,
+                        userId: 'SYSTEM',
+                        username: 'Auto-Bye',
+                        action: 'REPORT_MATCH',
+                        entityType: 'MATCH',
+                        entityId: match.id,
+                        oldValue: JSON.stringify({ isCompleted: false }),
+                        newValue: JSON.stringify({
+                            player1Wins: 2,
+                            player2Wins: 0,
+                            draws: 0,
+                            winnerId: player1DbId,
+                            isCompleted: true
+                        }),
+                        description: `Bye automatically reported as 2-0-0 win for ${pairing.player1Name}`,
+                    });
+                }
             }
         }
         // Update league
@@ -254,6 +305,8 @@ class LeagueService {
         if (!allComplete) {
             return; // Round not complete yet
         }
+        // Round is complete - cancel any active timer for this round
+        this.timerService.cancelRoundTimer(leagueId, league.currentRound);
         // Round is complete - determine next action
         if (league.status === types_1.LeagueStatus.TOP_CUT) {
             // We're in top cut - check if it's the finals
@@ -290,6 +343,8 @@ class LeagueService {
         const league = await this.leagueRepo.findById(leagueId);
         if (!league)
             return;
+        // Cancel all timers for this league
+        this.timerService.cancelLeagueTimers(leagueId);
         const standings = await this.getStandings(leagueId);
         const winner = standings[0];
         await this.leagueRepo.update(leagueId, {
@@ -494,6 +549,8 @@ class LeagueService {
         return this.matchRepo.findByRound(round.id);
     }
     async cancelLeague(leagueId) {
+        // Cancel all timers for this league
+        this.timerService.cancelLeagueTimers(leagueId);
         await this.leagueRepo.update(leagueId, {
             status: types_1.LeagueStatus.CANCELLED,
         });
@@ -507,6 +564,8 @@ class LeagueService {
         if (league.status !== types_1.LeagueStatus.IN_PROGRESS) {
             throw new Error('League is not in progress');
         }
+        // Cancel all timers for this league
+        this.timerService.cancelLeagueTimers(leagueId);
         // Get final standings for the audit log
         const standings = await this.getStandings(leagueId);
         const winner = standings[0];

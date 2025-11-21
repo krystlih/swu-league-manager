@@ -61,7 +61,8 @@ DATABASE_URL="file:./dev.db"
 ## 📋 Commands
 
 ### League Management
-- `/league create` - Create a new league with automatic round calculation
+- `/league create` - Create a new league
+  - **Optional:** `rounds` parameter (if not set, auto-calculated based on player count)
   - **Optional:** `timer` parameter sets round timer in minutes (10-180)
 - `/league list` - View active leagues
 - `/league cancel` - Cancel a league (creator only)
@@ -133,6 +134,8 @@ DATABASE_URL="file:./dev.db"
    ```
 
 ### Swiss Round Calculation
+*Applied automatically if rounds not specified during league creation*
+
 - **2 players** → 1 round
 - **3-4 players** → 2 rounds
 - **5-8 players** → 3 rounds
@@ -141,6 +144,14 @@ DATABASE_URL="file:./dev.db"
 - **33-64 players** → 6 rounds
 - **65-128 players** → 7 rounds
 - **129+ players** → 8 rounds
+
+**Note:** You can manually override round count when creating a league. The system prevents generating rounds beyond the defined limit.
+
+### Bye Handling
+- **Automatic**: Byes are automatically reported as 2-0-0 wins
+- Player with bye receives 3 match points and 6 game points
+- Marked as completed immediately when round is generated
+- No manual reporting needed
 
 ### Top Cut Sizes
 - **32+ players** → Top 8
@@ -155,7 +166,6 @@ DATABASE_URL="file:./dev.db"
 - All commands use autocomplete for easy league selection
 - Creator-only controls for tournament management
 - Complete audit trail of all modifications
-
 ## 🛠️ Technology Stack
 
 - **Discord.js v14** - Discord bot framework
