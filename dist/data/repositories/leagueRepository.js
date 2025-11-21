@@ -7,6 +7,7 @@ class LeagueRepository {
         return prismaClient_1.prisma.league.create({
             data: {
                 guildId: options.guildId,
+                createdBy: options.createdBy,
                 name: options.name,
                 format: options.format,
                 competitionType: options.competitionType,

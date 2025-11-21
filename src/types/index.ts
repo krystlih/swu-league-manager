@@ -16,6 +16,7 @@ export enum LeagueStatus {
 export interface League {
   id: number;
   guildId: string;
+  createdBy: string;
   name: string;
   description?: string | null;
   format: string;
@@ -69,7 +70,7 @@ export interface Match {
   leagueId: number;
   roundId?: number | null;
   player1Id: number;
-  player2Id: number;
+  player2Id: number | null;
   player1Wins: number;
   player2Wins: number;
   draws: number;
@@ -81,7 +82,8 @@ export interface Match {
   reportedAt?: Date | null;
   createdAt: Date;
   player1?: Player;
-  player2?: Player;
+  player2?: Player | null;
+  round?: Round | null;
 }
 
 export interface Pairing {
@@ -113,6 +115,7 @@ export interface TournamentData {
 
 export interface CreateLeagueOptions {
   guildId: string;
+  createdBy: string;
   name: string;
   description?: string;
   format: string;
@@ -126,4 +129,18 @@ export interface MatchResult {
   player1Wins: number;
   player2Wins: number;
   draws?: number;
+}
+
+export interface AuditLog {
+  id: number;
+  leagueId: number;
+  userId: string;
+  username: string;
+  action: string;
+  entityType: string;
+  entityId?: number | null;
+  oldValue?: string | null;
+  newValue?: string | null;
+  description: string;
+  createdAt: Date;
 }

@@ -27,5 +27,10 @@ class RoundRepository {
             orderBy: { roundNumber: 'asc' },
         });
     }
+    async delete(id) {
+        await prismaClient_1.prisma.round.delete({
+            where: { id },
+        });
+    }
 }
 exports.RoundRepository = RoundRepository;

@@ -50,9 +50,9 @@ export class TournamentService {
   }
 
   generatePairings(leagueId: number): Pairing[] {
-    const tournamentData = this.tournaments.get(leagueId);
+    let tournamentData = this.tournaments.get(leagueId);
     if (!tournamentData) {
-      throw new Error(`Tournament not found for league \${leagueId}`);
+      throw new Error(`Tournament not found for league ${leagueId}. Tournament must be created first.`);
     }
 
     const { players } = tournamentData;
@@ -77,7 +77,7 @@ export class TournamentService {
   ): void {
     const tournamentData = this.tournaments.get(leagueId);
     if (!tournamentData) {
-      throw new Error(`Tournament not found for league \${leagueId}`);
+      throw new Error(`Tournament not found for league ${leagueId}`);
     }
 
     const { players } = tournamentData;
@@ -115,7 +115,7 @@ export class TournamentService {
   getStandings(leagueId: number): StandingsEntry[] {
     const tournamentData = this.tournaments.get(leagueId);
     if (!tournamentData) {
-      throw new Error(`Tournament not found for league \${leagueId}`);
+      throw new Error(`Tournament not found for league ${leagueId}`);
     }
 
     const { players } = tournamentData;
@@ -147,7 +147,7 @@ export class TournamentService {
   dropPlayer(leagueId: number, playerId: string): void {
     const tournamentData = this.tournaments.get(leagueId);
     if (!tournamentData) {
-      throw new Error(`Tournament not found for league \${leagueId}`);
+      throw new Error(`Tournament not found for league ${leagueId}`);
     }
 
     const { players } = tournamentData;
@@ -193,5 +193,73 @@ export class TournamentService {
       return dbPlayerId.toString();
     }
     return undefined;
+  }
+
+  /**
+   * Rebuild tournament state from database registrations and matches
+   * This is useful when the bot restarts and loses in-memory state
+   */
+  async rebuildFromDatabase(
+    leagueId: number,
+    registrations: Array<{ 
+      playerId: number; 
+      player?: { username: string } | null;
+      wins: number;
+      losses: number;
+      draws: number;
+    }>,
+    matches: Array<{
+      player1Id: number;
+      player2Id?: number | null;
+      winnerId?: number | null;
+      isDraw?: boolean;
+      isCompleted?: boolean;
+    }>
+  ): Promise<void> {
+    // Create player records from registrations
+    const playerRecords = new Map<number, PlayerRecord>();
+    
+    registrations.forEach((reg) => {
+      playerRecords.set(reg.playerId, {
+        id: reg.playerId,
+        name: reg.player?.username || 'Unknown',
+        wins: reg.wins,
+        losses: reg.losses,
+        draws: reg.draws,
+        matchPoints: 0,
+        opponentMatchWinPercentage: 0,
+        gameWinPercentage: 0,
+        opponentGameWinPercentage: 0,
+        opponents: [],
+      });
+    });
+
+    // Rebuild opponent history from completed matches
+    matches.forEach((match) => {
+      if (match.isCompleted && match.player2Id) {
+        const player1 = playerRecords.get(match.player1Id);
+        const player2 = playerRecords.get(match.player2Id);
+        
+        if (player1 && !player1.opponents.includes(match.player2Id)) {
+          player1.opponents.push(match.player2Id);
+        }
+        if (player2 && !player2.opponents.includes(match.player1Id)) {
+          player2.opponents.push(match.player1Id);
+        }
+      }
+    });
+
+    // Store the rebuilt tournament
+    this.tournaments.set(leagueId, {
+      players: playerRecords,
+      currentRound: 0, // Will be updated from league.currentRound
+    });
+
+    // Recalculate tiebreakers
+    this.recalculateTiebreakers(leagueId);
+  }
+
+  deleteTournament(leagueId: number): void {
+    this.tournaments.delete(leagueId);
   }
 }

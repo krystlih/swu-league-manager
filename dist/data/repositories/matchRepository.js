@@ -3,11 +3,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MatchRepository = void 0;
 const prismaClient_1 = require("../prismaClient");
 class MatchRepository {
-    async create(roundId, player1Id, player2Id, tableNumber) {
+    async create(leagueId, roundId, player1Id, player2Id, tableNumber, isBye = false) {
         const data = {
+            leagueId,
             roundId,
             player1Id,
             tableNumber,
+            isBye,
         };
         if (player2Id !== null) {
             data.player2Id = player2Id;
@@ -33,6 +35,17 @@ class MatchRepository {
             orderBy: { tableNumber: 'asc' },
         });
     }
+    async findByLeague(leagueId) {
+        return prismaClient_1.prisma.match.findMany({
+            where: { leagueId },
+            include: {
+                player1: true,
+                player2: true,
+                round: true,
+            },
+            orderBy: { createdAt: 'asc' },
+        });
+    }
     async update(id, data) {
         return prismaClient_1.prisma.match.update({
             where: { id },
@@ -48,6 +61,11 @@ class MatchRepository {
                 draws,
                 isCompleted: true,
             },
+        });
+    }
+    async deleteByRound(roundId) {
+        await prismaClient_1.prisma.match.deleteMany({
+            where: { roundId },
         });
     }
 }

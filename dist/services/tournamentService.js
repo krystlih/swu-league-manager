@@ -41,9 +41,9 @@ class TournamentService {
         };
     }
     generatePairings(leagueId) {
-        const tournamentData = this.tournaments.get(leagueId);
+        let tournamentData = this.tournaments.get(leagueId);
         if (!tournamentData) {
-            throw new Error(`Tournament not found for league \${leagueId}`);
+            throw new Error(`Tournament not found for league ${leagueId}. Tournament must be created first.`);
         }
         const { players } = tournamentData;
         const playerArray = Array.from(players.values());
@@ -60,7 +60,7 @@ class TournamentService {
     reportMatch(leagueId, player1Id, player2Id, result) {
         const tournamentData = this.tournaments.get(leagueId);
         if (!tournamentData) {
-            throw new Error(`Tournament not found for league \${leagueId}`);
+            throw new Error(`Tournament not found for league ${leagueId}`);
         }
         const { players } = tournamentData;
         const p1Id = parseInt(player1Id);
@@ -93,7 +93,7 @@ class TournamentService {
     getStandings(leagueId) {
         const tournamentData = this.tournaments.get(leagueId);
         if (!tournamentData) {
-            throw new Error(`Tournament not found for league \${leagueId}`);
+            throw new Error(`Tournament not found for league ${leagueId}`);
         }
         const { players } = tournamentData;
         const playerArray = Array.from(players.values());
@@ -122,7 +122,7 @@ class TournamentService {
     dropPlayer(leagueId, playerId) {
         const tournamentData = this.tournaments.get(leagueId);
         if (!tournamentData) {
-            throw new Error(`Tournament not found for league \${leagueId}`);
+            throw new Error(`Tournament not found for league ${leagueId}`);
         }
         const { players } = tournamentData;
         const pId = parseInt(playerId);
@@ -154,6 +154,51 @@ class TournamentService {
             return dbPlayerId.toString();
         }
         return undefined;
+    }
+    /**
+     * Rebuild tournament state from database registrations and matches
+     * This is useful when the bot restarts and loses in-memory state
+     */
+    async rebuildFromDatabase(leagueId, registrations, matches) {
+        // Create player records from registrations
+        const playerRecords = new Map();
+        registrations.forEach((reg) => {
+            playerRecords.set(reg.playerId, {
+                id: reg.playerId,
+                name: reg.player?.username || 'Unknown',
+                wins: reg.wins,
+                losses: reg.losses,
+                draws: reg.draws,
+                matchPoints: 0,
+                opponentMatchWinPercentage: 0,
+                gameWinPercentage: 0,
+                opponentGameWinPercentage: 0,
+                opponents: [],
+            });
+        });
+        // Rebuild opponent history from completed matches
+        matches.forEach((match) => {
+            if (match.isCompleted && match.player2Id) {
+                const player1 = playerRecords.get(match.player1Id);
+                const player2 = playerRecords.get(match.player2Id);
+                if (player1 && !player1.opponents.includes(match.player2Id)) {
+                    player1.opponents.push(match.player2Id);
+                }
+                if (player2 && !player2.opponents.includes(match.player1Id)) {
+                    player2.opponents.push(match.player1Id);
+                }
+            }
+        });
+        // Store the rebuilt tournament
+        this.tournaments.set(leagueId, {
+            players: playerRecords,
+            currentRound: 0, // Will be updated from league.currentRound
+        });
+        // Recalculate tiebreakers
+        this.recalculateTiebreakers(leagueId);
+    }
+    deleteTournament(leagueId) {
+        this.tournaments.delete(leagueId);
     }
 }
 exports.TournamentService = TournamentService;

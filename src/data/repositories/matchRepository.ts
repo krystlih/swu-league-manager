@@ -3,15 +3,19 @@ import { Match } from '../../types';
 
 export class MatchRepository {
   async create(
+    leagueId: number,
     roundId: number,
     player1Id: number,
     player2Id: number | null,
-    tableNumber: number
+    tableNumber: number,
+    isBye: boolean = false
   ): Promise<Match> {
     const data: any = {
+      leagueId,
       roundId,
       player1Id,
       tableNumber,
+      isBye,
     };
     
     if (player2Id !== null) {
@@ -42,6 +46,18 @@ export class MatchRepository {
     });
   }
 
+  async findByLeague(leagueId: number): Promise<Match[]> {
+    return prisma.match.findMany({
+      where: { leagueId },
+      include: {
+        player1: true,
+        player2: true,
+        round: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
   async update(id: number, data: any): Promise<Match> {
     return prisma.match.update({
       where: { id },
@@ -63,6 +79,12 @@ export class MatchRepository {
         draws,
         isCompleted: true,
       },
+    });
+  }
+
+  async deleteByRound(roundId: number): Promise<void> {
+    await prisma.match.deleteMany({
+      where: { roundId },
     });
   }
 }

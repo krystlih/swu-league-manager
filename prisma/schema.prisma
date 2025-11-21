@@ -10,6 +10,7 @@ datasource db {
 model League {
   id                Int                @id @default(autoincrement())
   guildId           String             // Discord server ID
+  createdBy         String             // Discord user ID of the league creator
   name              String
   description       String?
   format            String             // User-defined format (e.g., "Standard", "Modern", "Limited")
@@ -25,6 +26,7 @@ model League {
   registrations     Registration[]
   rounds            Round[]
   matches           Match[]
+  auditLogs         AuditLog[]
   
   @@unique([guildId, name])
   @@index([guildId])
@@ -84,7 +86,7 @@ model Match {
   leagueId          Int
   roundId           Int?
   player1Id         Int
-  player2Id         Int
+  player2Id         Int?
   player1Wins       Int                @default(0)
   player2Wins       Int                @default(0)
   draws             Int                @default(0)
@@ -99,8 +101,28 @@ model Match {
   league            League             @relation(fields: [leagueId], references: [id], onDelete: Cascade)
   round             Round?             @relation(fields: [roundId], references: [id])
   player1           Player             @relation("Player1Matches", fields: [player1Id], references: [id])
-  player2           Player             @relation("Player2Matches", fields: [player2Id], references: [id])
+  player2           Player?            @relation("Player2Matches", fields: [player2Id], references: [id])
   
   @@index([leagueId])
   @@index([roundId])
+}
+
+model AuditLog {
+  id                Int                @id @default(autoincrement())
+  leagueId          Int
+  userId            String             // Discord user ID who made the change
+  username          String             // Discord username at time of change
+  action            String             // Type of action: MODIFY_MATCH, REPAIR_ROUND, START_TOURNAMENT, etc.
+  entityType        String             // MATCH, ROUND, LEAGUE
+  entityId          Int?               // ID of the entity affected
+  oldValue          String?            // JSON string of old state
+  newValue          String?            // JSON string of new state
+  description       String             // Human-readable description
+  createdAt         DateTime           @default(now())
+  
+  league            League             @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  
+  @@index([leagueId])
+  @@index([userId])
+  @@index([createdAt])
 }

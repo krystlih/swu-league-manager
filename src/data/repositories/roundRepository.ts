@@ -28,4 +28,10 @@ export class RoundRepository {
       orderBy: { roundNumber: 'asc' },
     });
   }
+
+  async delete(id: number): Promise<void> {
+    await prisma.round.delete({
+      where: { id },
+    });
+  }
 }

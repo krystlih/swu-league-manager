@@ -3,6 +3,7 @@ import { PlayerRepository } from '../data/repositories/playerRepository';
 import { RegistrationRepository } from '../data/repositories/registrationRepository';
 import { RoundRepository } from '../data/repositories/roundRepository';
 import { MatchRepository } from '../data/repositories/matchRepository';
+import { AuditLogRepository } from '../data/repositories/auditLogRepository';
 import { TournamentService } from './tournamentService';
 import {
   League,
@@ -19,6 +20,7 @@ export class LeagueService {
   private registrationRepo: RegistrationRepository;
   private roundRepo: RoundRepository;
   private matchRepo: MatchRepository;
+  private auditLogRepo: AuditLogRepository;
   private tournamentService: TournamentService;
 
   constructor() {
@@ -27,6 +29,7 @@ export class LeagueService {
     this.registrationRepo = new RegistrationRepository();
     this.roundRepo = new RoundRepository();
     this.matchRepo = new MatchRepository();
+    this.auditLogRepo = new AuditLogRepository();
     this.tournamentService = new TournamentService();
   }
 
@@ -36,6 +39,15 @@ export class LeagueService {
 
   async getLeague(leagueId: number): Promise<League | null> {
     return this.leagueRepo.findById(leagueId);
+  }
+
+  async getLeaguesByGuild(guildId: string): Promise<League[]> {
+    return this.leagueRepo.findByGuildId(guildId);
+  }
+
+  async getLeagueByName(guildId: string, name: string): Promise<League | null> {
+    const leagues = await this.leagueRepo.findByGuildId(guildId);
+    return leagues.find(l => l.name === name) || null;
   }
 
   async getActiveLeagues(guildId: string): Promise<League[]> {
@@ -62,7 +74,7 @@ export class LeagueService {
     await this.registrationRepo.create(leagueId, player.id);
   }
 
-  async startLeague(leagueId: number): Promise<void> {
+  async startLeague(leagueId: number, userId: string, username: string): Promise<void> {
     const league = await this.leagueRepo.findById(leagueId);
     if (!league) {
       throw new Error('League not found');
@@ -88,6 +100,22 @@ export class LeagueService {
     await this.leagueRepo.update(leagueId, {
       status: LeagueStatus.IN_PROGRESS,
     });
+
+    // Log the tournament start
+    await this.auditLogRepo.create({
+      leagueId,
+      userId,
+      username,
+      action: 'START_TOURNAMENT',
+      entityType: 'LEAGUE',
+      entityId: leagueId,
+      oldValue: JSON.stringify({ status: LeagueStatus.REGISTRATION }),
+      newValue: JSON.stringify({ 
+        status: LeagueStatus.IN_PROGRESS,
+        playerCount: registrations.length,
+      }),
+      description: `Started tournament with ${registrations.length} players`,
+    });
   }
 
   async generateNextRound(leagueId: number): Promise<Pairing[]> {
@@ -98,6 +126,15 @@ export class LeagueService {
 
     if (league.status !== LeagueStatus.IN_PROGRESS) {
       throw new Error('League is not in progress');
+    }
+
+    // Check if tournament exists in memory, if not rebuild from database
+    const existingTournament = this.tournamentService.getTournament(leagueId);
+    if (!existingTournament) {
+      // Rebuild tournament state from database
+      const registrations = await this.registrationRepo.findByLeague(leagueId);
+      const matches = await this.matchRepo.findByLeague(leagueId);
+      await this.tournamentService.rebuildFromDatabase(leagueId, registrations, matches);
     }
 
     // Check if current round is complete
@@ -116,8 +153,19 @@ export class LeagueService {
     const nextRoundNumber = league.currentRound + 1;
     const pairings = await this.tournamentService.generatePairings(leagueId);
 
-    // Create round and matches
-    const round = await this.roundRepo.create(leagueId, nextRoundNumber);
+    // Check if round already exists (in case of retry)
+    let round = await this.roundRepo.findByLeagueAndRound(leagueId, nextRoundNumber);
+    
+    if (!round) {
+      // Create new round
+      round = await this.roundRepo.create(leagueId, nextRoundNumber);
+    } else {
+      // Round already exists, check if it has matches
+      const existingMatches = await this.matchRepo.findByRound(round.id);
+      if (existingMatches.length > 0) {
+        throw new Error(`Round ${nextRoundNumber} already exists with matches. Cannot regenerate.`);
+      }
+    }
     
     for (let i = 0; i < pairings.length; i++) {
       const pairing = pairings[i];
@@ -127,7 +175,14 @@ export class LeagueService {
         : null;
 
       if (player1DbId) {
-        await this.matchRepo.create(round.id, player1DbId, player2DbId ?? null, i + 1);
+        await this.matchRepo.create(
+          leagueId,
+          round.id, 
+          player1DbId, 
+          player2DbId ?? null, 
+          i + 1,
+          pairing.isBye
+        );
       }
     }
 
@@ -149,11 +204,13 @@ export class LeagueService {
       throw new Error('Match already reported');
     }
 
-    // Get the league ID from the round
-    const round = await this.roundRepo.findByLeagueAndRound(
-      match.leagueId,
-      1 // We'll need to find the correct round
-    );
+    // Ensure tournament exists in memory, rebuild if needed
+    const existingTournament = this.tournamentService.getTournament(match.leagueId);
+    if (!existingTournament) {
+      const registrations = await this.registrationRepo.findByLeague(match.leagueId);
+      const matches = await this.matchRepo.findByLeague(match.leagueId);
+      await this.tournamentService.rebuildFromDatabase(match.leagueId, registrations, matches);
+    }
     
     // Update match
     const draws = result.draws || 0;
@@ -179,6 +236,34 @@ export class LeagueService {
 
     // Update standings
     await this.updateStandings(match.leagueId);
+  }
+
+  async findPlayerActiveMatch(leagueId: number, discordId: string): Promise<any> {
+    // Find the player by Discord ID
+    const player = await this.playerRepo.findByDiscordId(discordId);
+    if (!player) {
+      return null;
+    }
+
+    // Get the current league
+    const league = await this.leagueRepo.findById(leagueId);
+    if (!league || league.currentRound === 0) {
+      return null;
+    }
+
+    // Find the current round
+    const currentRound = await this.roundRepo.findByLeagueAndRound(leagueId, league.currentRound);
+    if (!currentRound) {
+      return null;
+    }
+
+    // Find the player's match in the current round
+    const matches = await this.matchRepo.findByRound(currentRound.id);
+    const playerMatch = matches.find(m => 
+      m.player1Id === player.id || m.player2Id === player.id
+    );
+
+    return playerMatch || null;
   }
 
   private async updateStandings(leagueId: number): Promise<void> {
@@ -236,10 +321,203 @@ export class LeagueService {
     return this.matchRepo.findByRound(round.id);
   }
 
+  async getAllLeagueMatches(leagueId: number): Promise<any[]> {
+    return this.matchRepo.findByLeague(leagueId);
+  }
+
   async cancelLeague(leagueId: number): Promise<void> {
     await this.leagueRepo.update(leagueId, {
       status: LeagueStatus.CANCELLED,
     });
     // Tournament will be cleaned up from memory
+  }
+
+  async endTournament(leagueId: number, userId: string, username: string): Promise<void> {
+    const league = await this.leagueRepo.findById(leagueId);
+    if (!league) {
+      throw new Error('League not found');
+    }
+
+    if (league.status !== LeagueStatus.IN_PROGRESS) {
+      throw new Error('League is not in progress');
+    }
+
+    // Get final standings for the audit log
+    const standings = await this.getStandings(leagueId);
+    const winner = standings[0];
+
+    // Update league status to completed
+    await this.leagueRepo.update(leagueId, {
+      status: LeagueStatus.COMPLETED,
+    });
+
+    // Log the tournament end
+    await this.auditLogRepo.create({
+      leagueId,
+      userId,
+      username,
+      action: 'END_TOURNAMENT',
+      entityType: 'LEAGUE',
+      entityId: leagueId,
+      oldValue: JSON.stringify({ status: LeagueStatus.IN_PROGRESS }),
+      newValue: JSON.stringify({ 
+        status: LeagueStatus.COMPLETED,
+        winner: winner?.playerName || 'N/A',
+        winnerRecord: winner ? `${winner.wins}-${winner.losses}-${winner.draws}` : 'N/A',
+        totalRounds: league.currentRound,
+        playerCount: standings.length,
+      }),
+      description: `Ended tournament. Winner: ${winner?.playerName || 'N/A'} with ${winner?.wins || 0}-${winner?.losses || 0}-${winner?.draws || 0} record`,
+    });
+
+    // Remove tournament from memory
+    this.tournamentService.deleteTournament(leagueId);
+  }
+
+  async getAuditLogs(leagueId: number, limit: number = 50): Promise<any[]> {
+    return this.auditLogRepo.findRecent(leagueId, limit);
+  }
+
+  async getMatchById(matchId: number): Promise<any> {
+    return this.matchRepo.findById(matchId);
+  }
+
+  async modifyMatchResult(
+    matchId: number, 
+    result: MatchResult,
+    userId: string,
+    username: string
+  ): Promise<void> {
+    // Get the match before modification for audit log
+    const oldMatch = await this.matchRepo.findById(matchId);
+    if (!oldMatch) {
+      throw new Error('Match not found');
+    }
+
+    const oldValue = {
+      player1Wins: oldMatch.player1Wins,
+      player2Wins: oldMatch.player2Wins,
+      draws: oldMatch.draws,
+      isCompleted: oldMatch.isCompleted,
+    };
+
+    // Update the match with the new result
+    await this.matchRepo.reportResult(
+      matchId,
+      result.player1Wins,
+      result.player2Wins,
+      result.draws || 0
+    );
+    
+    // Get the match to update standings
+    const match = await this.matchRepo.findById(matchId);
+    if (!match) {
+      throw new Error('Match not found');
+    }
+
+    const newValue = {
+      player1Wins: result.player1Wins,
+      player2Wins: result.player2Wins,
+      draws: result.draws || 0,
+      isCompleted: true,
+    };
+
+    // Log the change
+    const player1Name = match.player1?.username || 'Unknown';
+    const player2Name = match.player2?.username || 'BYE';
+    await this.auditLogRepo.create({
+      leagueId: match.leagueId,
+      userId,
+      username,
+      action: 'MODIFY_MATCH',
+      entityType: 'MATCH',
+      entityId: matchId,
+      oldValue: JSON.stringify(oldValue),
+      newValue: JSON.stringify(newValue),
+      description: `Modified match result for ${player1Name} vs ${player2Name} from ${oldValue.player1Wins}-${oldValue.player2Wins} to ${newValue.player1Wins}-${newValue.player2Wins}`,
+    });
+
+    // Rebuild tournament state and recalculate standings
+    const registrations = await this.registrationRepo.findByLeague(match.leagueId);
+    const matches = await this.matchRepo.findByLeague(match.leagueId);
+    await this.tournamentService.rebuildFromDatabase(match.leagueId, registrations, matches);
+    
+    // Update standings in the database
+    await this.updateStandings(match.leagueId);
+  }
+
+  async repairCurrentRound(
+    leagueId: number,
+    userId: string,
+    username: string
+  ): Promise<void> {
+    const league = await this.leagueRepo.findById(leagueId);
+    if (!league) {
+      throw new Error('League not found');
+    }
+
+    if (league.currentRound === 0) {
+      throw new Error('No active round to repair');
+    }
+
+    // Get the current round
+    const round = await this.roundRepo.findByLeagueAndRound(leagueId, league.currentRound);
+    if (!round) {
+      throw new Error('Current round not found');
+    }
+
+    // Get matches before deletion for audit log
+    const deletedMatches = await this.matchRepo.findByRound(round.id);
+
+    // Delete all matches in the current round
+    await this.matchRepo.deleteByRound(round.id);
+
+    // Delete the round itself
+    await this.roundRepo.delete(round.id);
+
+    // Decrement the current round counter
+    await this.leagueRepo.update(leagueId, {
+      currentRound: league.currentRound - 1,
+    });
+
+    // Log the repair action
+    await this.auditLogRepo.create({
+      leagueId,
+      userId,
+      username,
+      action: 'REPAIR_ROUND',
+      entityType: 'ROUND',
+      entityId: round.id,
+      oldValue: JSON.stringify({
+        roundNumber: league.currentRound,
+        matchCount: deletedMatches.length,
+        matches: deletedMatches.map(m => ({
+          id: m.id,
+          player1Id: m.player1Id,
+          player2Id: m.player2Id,
+          tableNumber: m.tableNumber,
+        })),
+      }),
+      newValue: JSON.stringify({
+        roundNumber: league.currentRound,
+        status: 'regenerated',
+      }),
+      description: `Repaired round ${league.currentRound} - deleted ${deletedMatches.length} matches and regenerated pairings`,
+    });
+
+    // Remove round from tournament service memory
+    const tournament = this.tournamentService.getTournament(leagueId);
+    if (tournament) {
+      // The tournament service will regenerate pairings when nextround is called
+      this.tournamentService.deleteTournament(leagueId);
+    }
+
+    // Rebuild tournament state from database
+    const registrations = await this.registrationRepo.findByLeague(leagueId);
+    const matches = await this.matchRepo.findByLeague(leagueId);
+    await this.tournamentService.rebuildFromDatabase(leagueId, registrations, matches);
+
+    // Generate new pairings for this round
+    await this.generateNextRound(leagueId);
   }
 }
