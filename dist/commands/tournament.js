@@ -75,10 +75,11 @@ exports.tournamentCommand = {
         .setDescription('Select the league')
         .setRequired(true)
         .setAutocomplete(true))
-        .addIntegerOption(option => option
-        .setName('match_id')
-        .setDescription('The match ID to modify')
-        .setRequired(true))
+        .addStringOption(option => option
+        .setName('match')
+        .setDescription('Select the match to modify')
+        .setRequired(true)
+        .setAutocomplete(true))
         .addIntegerOption(option => option
         .setName('player1_wins')
         .setDescription('Player 1 wins')
@@ -270,7 +271,8 @@ exports.tournamentCommand = {
                     });
                     return;
                 }
-                const matchId = interaction.options.getInteger('match_id', true);
+                const matchIdStr = interaction.options.getString('match', true);
+                const matchId = parseInt(matchIdStr);
                 const player1Wins = interaction.options.getInteger('player1_wins', true);
                 const player2Wins = interaction.options.getInteger('player2_wins', true);
                 const draws = interaction.options.getInteger('draws') || 0;
@@ -539,6 +541,46 @@ exports.tournamentCommand = {
                     name: `${league.name} (${league.status})`,
                     value: league.name
                 })));
+            }
+            else if (focusedOption.name === 'match' && subcommand === 'modifymatch') {
+                // Get the selected league
+                const leagueName = interaction.options.getString('league');
+                if (!leagueName) {
+                    await interaction.respond([]);
+                    return;
+                }
+                // Find the league
+                const guildId = interaction.guildId;
+                const leagues = await leagueService.getLeaguesByGuild(guildId);
+                const league = leagues.find(l => l.name === leagueName);
+                if (!league) {
+                    await interaction.respond([]);
+                    return;
+                }
+                // Get all matches for the league
+                const matches = await leagueService.getAllLeagueMatches(league.id);
+                // Format matches for autocomplete
+                const matchChoices = matches
+                    .filter((match) => {
+                    const player1Name = match.player1?.username || 'Unknown';
+                    const player2Name = match.player2?.username || 'BYE';
+                    const searchStr = `${player1Name} ${player2Name} Round ${match.roundNumber}`.toLowerCase();
+                    return searchStr.includes(focusedOption.value.toLowerCase());
+                })
+                    .slice(0, 25)
+                    .map((match) => {
+                    const player1Name = match.player1?.username || 'Unknown';
+                    const player2Name = match.player2?.username || 'BYE';
+                    const status = match.isCompleted ? '✅' : '⏳';
+                    const result = match.isCompleted
+                        ? ` (${match.player1Wins || 0}-${match.player2Wins || 0})`
+                        : '';
+                    return {
+                        name: `R${match.roundNumber} ${status} ${player1Name} vs ${player2Name}${result}`.slice(0, 100),
+                        value: match.id.toString()
+                    };
+                });
+                await interaction.respond(matchChoices);
             }
         }
         catch (error) {
