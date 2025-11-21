@@ -230,18 +230,47 @@ export const tournamentCommand = {
           interaction.user.username
         );
         
-        // Start timer for Round 1 if configured
+        // Automatically generate Round 1 pairings
+        const pairings = await leagueService.generateNextRound(leagueId);
+        
+        // Get updated league and start timer if configured
         const updatedLeague = await leagueService.getLeague(leagueId);
-        if (updatedLeague && updatedLeague.currentRound === 1 && updatedLeague.roundTimerMinutes) {
+        if (updatedLeague && updatedLeague.roundTimerMinutes) {
           await timerService.startRoundTimer(
             leagueId,
-            1,
+            updatedLeague.currentRound,
             interaction.guildId!,
             interaction.channelId
           );
         }
         
-        await interaction.reply(`League "${league.name}" has been started! Use /tournament nextround to generate round 1 pairings.`);
+        // Create pairings embed
+        const embed = new EmbedBuilder()
+          .setColor(0x0099ff)
+          .setTitle(`${league.name} - Round 1 Pairings`)
+          .setTimestamp();
+
+        pairings.forEach((pairing, index) => {
+          const player2Name = pairing.player2Name || 'BYE';
+          const isBye = !pairing.player2Name;
+          const matchInfo = isBye 
+            ? `${pairing.player1Name} vs ${player2Name} ✅ (Auto-completed: 2-0-0)`
+            : `${pairing.player1Name} vs ${player2Name}`;
+          
+          embed.addFields({
+            name: `Table ${index + 1}`,
+            value: matchInfo,
+          });
+        });
+
+        // Add timer info to embed if configured
+        if (updatedLeague?.roundTimerMinutes) {
+          embed.setFooter({ 
+            text: `Round timer: ${updatedLeague.roundTimerMinutes} minutes (starts in 5 minutes)` 
+          });
+        }
+
+        await interaction.reply({ embeds: [embed] });
       } else if (subcommand === 'nextround') {
         // Cancel timer for current round before generating next round
         if (league.currentRound > 0) {
