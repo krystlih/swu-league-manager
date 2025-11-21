@@ -193,14 +193,14 @@ export const tournamentCommand = {
       const guildId = interaction.guildId;
       
       if (!guildId) {
-        await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+        await interaction.reply({ content: 'This command can only be used in a server.', flags: 64 });
         return;
       }
 
       const league = await leagueService.getLeagueByName(guildId, leagueName);
       
       if (!league) {
-        await interaction.reply({ content: `League "${leagueName}" not found.`, ephemeral: true });
+        await interaction.reply({ content: `League "${leagueName}" not found.`, flags: 64 });
         return;
       }
 
@@ -211,7 +211,7 @@ export const tournamentCommand = {
         if (league.createdBy !== interaction.user.id) {
           await interaction.reply({ 
             content: 'Only the league creator can start the tournament.', 
-            ephemeral: true 
+            flags: 64 
           });
           return;
         }
@@ -331,7 +331,7 @@ export const tournamentCommand = {
         if (!match) {
           await interaction.reply({
             content: 'You do not have an active match in this league.',
-            ephemeral: true
+            flags: 64
           });
           return;
         }
@@ -339,7 +339,7 @@ export const tournamentCommand = {
         if (match.isCompleted) {
           await interaction.reply({
             content: 'This match has already been reported.',
-            ephemeral: true
+            flags: 64
           });
           return;
         }
@@ -396,7 +396,7 @@ export const tournamentCommand = {
         if (league.createdBy !== interaction.user.id) {
           await interaction.reply({ 
             content: 'Only the league creator can modify match results.', 
-            ephemeral: true 
+            flags: 64 
           });
           return;
         }
@@ -413,7 +413,7 @@ export const tournamentCommand = {
         if (!match || match.leagueId !== leagueId) {
           await interaction.reply({ 
             content: 'Match not found in this league.', 
-            ephemeral: true 
+            flags: 64 
           });
           return;
         }
@@ -455,7 +455,7 @@ export const tournamentCommand = {
           console.error('[ERROR] Failed to modify match result:', error);
           await interaction.reply({
             content: `Error modifying match result: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            ephemeral: true
+            flags: 64
           });
         }
       } else if (subcommand === 'repairround') {
@@ -463,7 +463,7 @@ export const tournamentCommand = {
         if (league.createdBy !== interaction.user.id) {
           await interaction.reply({ 
             content: 'Only the league creator can repair rounds.', 
-            ephemeral: true 
+            flags: 64 
           });
           return;
         }
@@ -495,7 +495,7 @@ export const tournamentCommand = {
         if (playerMatches.length === 0) {
           await interaction.reply({
             content: `No matches found for player "${playerName}" in league "${league.name}".`,
-            ephemeral: true
+            flags: 64
           });
           return;
         }
@@ -519,13 +519,13 @@ export const tournamentCommand = {
           });
         });
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: 64 });
       } else if (subcommand === 'end') {
         // Check if the user is the league creator
         if (league.createdBy !== interaction.user.id) {
           await interaction.reply({ 
             content: 'Only the league creator can end the tournament.', 
-            ephemeral: true 
+            flags: 64 
           });
           return;
         }
@@ -536,7 +536,7 @@ export const tournamentCommand = {
         if (standings.length === 0) {
           await interaction.reply({
             content: 'No standings available for this league.',
-            ephemeral: true
+            flags: 64
           });
           return;
         }
@@ -599,7 +599,7 @@ export const tournamentCommand = {
         if (!league.hasTopCut) {
           await interaction.reply({
             content: 'This tournament does not have a Top Cut bracket.',
-            ephemeral: true
+            flags: 64
           });
           return;
         }
@@ -608,7 +608,7 @@ export const tournamentCommand = {
         if (league.status !== 'TOP_CUT' && league.status !== 'COMPLETED') {
           await interaction.reply({
             content: 'The Top Cut bracket has not started yet. It will begin automatically after the Swiss rounds are complete.',
-            ephemeral: true
+            flags: 64
           });
           return;
         }
@@ -617,7 +617,7 @@ export const tournamentCommand = {
         if (!league.topCutSize || ![2, 4, 8].includes(league.topCutSize)) {
           await interaction.reply({
             content: 'Invalid Top Cut size. Must be 2, 4, or 8.',
-            ephemeral: true
+            flags: 64
           });
           return;
         }
@@ -633,7 +633,7 @@ export const tournamentCommand = {
         if (topCutMatches.length === 0) {
           await interaction.reply({
             content: 'No Top Cut matches have been created yet.',
-            ephemeral: true
+            flags: 64
           });
           return;
         }
@@ -696,7 +696,7 @@ export const tournamentCommand = {
       console.error('Error executing tournament command:', error);
       await interaction.reply({
         content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        ephemeral: true,
+        flags: 64,
       });
     }
   },

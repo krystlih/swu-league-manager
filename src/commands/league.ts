@@ -143,7 +143,7 @@ export const leagueCommand = {
           if (error.code === 'P2002' || error.message?.includes('Unique constraint')) {
             await interaction.reply({
               content: `A league named "${name}" already exists in this server. Please choose a different name.`,
-              ephemeral: true
+              flags: 64
             });
           } else {
             throw error; // Re-throw other errors to be caught by outer catch
@@ -175,7 +175,7 @@ export const leagueCommand = {
         const league = await leagueService.getLeagueByName(interaction.guildId!, leagueName);
 
         if (!league) {
-          await interaction.reply({ content: 'League not found.', ephemeral: true });
+          await interaction.reply({ content: 'League not found.', flags: 64 });
           return;
         }
 
@@ -187,7 +187,7 @@ export const leagueCommand = {
         const league = await leagueService.getLeagueByName(interaction.guildId!, leagueName);
 
         if (!league) {
-          await interaction.reply({ content: 'League not found.', ephemeral: true });
+          await interaction.reply({ content: 'League not found.', flags: 64 });
           return;
         }
 
@@ -195,7 +195,7 @@ export const leagueCommand = {
         if (league.createdBy !== interaction.user.id) {
           await interaction.reply({ 
             content: 'Only the league creator can delete a league.', 
-            ephemeral: true 
+            flags: 64 
           });
           return;
         }
@@ -209,7 +209,7 @@ export const leagueCommand = {
         const league = await leagueService.getLeagueByName(interaction.guildId!, leagueName);
 
         if (!league) {
-          await interaction.reply({ content: 'League not found.', ephemeral: true });
+          await interaction.reply({ content: 'League not found.', flags: 64 });
           return;
         }
 
@@ -217,7 +217,7 @@ export const leagueCommand = {
         if (league.createdBy !== interaction.user.id) {
           await interaction.reply({ 
             content: 'Only the league creator can view the audit log.', 
-            ephemeral: true 
+            flags: 64 
           });
           return;
         }
@@ -227,7 +227,7 @@ export const leagueCommand = {
         if (logs.length === 0) {
           await interaction.reply({ 
             content: 'No audit log entries found for this league.', 
-            ephemeral: true 
+            flags: 64 
           });
           return;
         }
@@ -247,7 +247,7 @@ export const leagueCommand = {
           });
         });
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: 64 });
       } else if (subcommand === 'help') {
         const embed = new EmbedBuilder()
           .setColor(0x5865f2)
@@ -333,7 +333,7 @@ export const leagueCommand = {
       console.error('Error executing league command:', error);
       await interaction.reply({
         content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        ephemeral: true,
+        flags: 64,
       });
     }
   },

@@ -22,20 +22,20 @@ exports.manualRegisterCommand = {
         const user = interaction.options.getUser('user', true);
         const guildId = interaction.guildId;
         if (!guildId) {
-            await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+            await interaction.reply({ content: 'This command can only be used in a server.', flags: 64 });
             return;
         }
         try {
             const league = await leagueService.getLeagueByName(guildId, leagueName);
             if (!league) {
-                await interaction.reply({ content: `League "${leagueName}" not found.`, ephemeral: true });
+                await interaction.reply({ content: `League "${leagueName}" not found.`, flags: 64 });
                 return;
             }
             // Check if the user is the league creator
             if (league.createdBy !== interaction.user.id) {
                 await interaction.reply({
                     content: 'Only the league creator can manually register users.',
-                    ephemeral: true
+                    flags: 64
                 });
                 return;
             }
@@ -46,7 +46,7 @@ exports.manualRegisterCommand = {
             console.error('Error manually registering player:', error);
             await interaction.reply({
                 content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                ephemeral: true,
+                flags: 64,
             });
         }
     },

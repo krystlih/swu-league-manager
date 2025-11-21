@@ -20,7 +20,7 @@ export const registrationCommand = {
     const guildId = interaction.guildId;
 
     if (!guildId) {
-      await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+      await interaction.reply({ content: 'This command can only be used in a server.', flags: 64 });
       return;
     }
 
@@ -28,7 +28,7 @@ export const registrationCommand = {
       const league = await leagueService.getLeagueByName(guildId, leagueName);
       
       if (!league) {
-        await interaction.reply({ content: `League "${leagueName}" not found.`, ephemeral: true });
+        await interaction.reply({ content: `League "${leagueName}" not found.`, flags: 64 });
         return;
       }
 
@@ -43,7 +43,7 @@ export const registrationCommand = {
       console.error('Error registering player:', error);
       await interaction.reply({
         content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        ephemeral: true,
+        flags: 64,
       });
     }
   },

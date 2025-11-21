@@ -47,7 +47,7 @@ exports.historyCommand = {
         const subcommand = interaction.options.getSubcommand();
         const guildId = interaction.guildId;
         if (!guildId) {
-            await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+            await interaction.reply({ content: 'This command can only be used in a server.', flags: 64 });
             return;
         }
         try {
@@ -76,16 +76,16 @@ exports.historyCommand = {
                 const leagueName = interaction.options.getString('league', true);
                 const league = await leagueService.getLeagueByName(guildId, leagueName);
                 if (!league) {
-                    await interaction.reply({ content: `Tournament "${leagueName}" not found.`, ephemeral: true });
+                    await interaction.reply({ content: `Tournament "${leagueName}" not found.`, flags: 64 });
                     return;
                 }
                 if (league.status !== 'COMPLETED') {
-                    await interaction.reply({ content: 'This tournament has not been completed yet.', ephemeral: true });
+                    await interaction.reply({ content: 'This tournament has not been completed yet.', flags: 64 });
                     return;
                 }
                 const standings = await leagueService.getStandings(league.id);
                 if (standings.length === 0) {
-                    await interaction.reply({ content: 'No standings available for this tournament.', ephemeral: true });
+                    await interaction.reply({ content: 'No standings available for this tournament.', flags: 64 });
                     return;
                 }
                 const winner = standings[0];
@@ -131,23 +131,23 @@ exports.historyCommand = {
                 const roundNumber = interaction.options.getInteger('round', true);
                 const league = await leagueService.getLeagueByName(guildId, leagueName);
                 if (!league) {
-                    await interaction.reply({ content: `Tournament "${leagueName}" not found.`, ephemeral: true });
+                    await interaction.reply({ content: `Tournament "${leagueName}" not found.`, flags: 64 });
                     return;
                 }
                 if (league.status !== 'COMPLETED') {
-                    await interaction.reply({ content: 'This tournament has not been completed yet.', ephemeral: true });
+                    await interaction.reply({ content: 'This tournament has not been completed yet.', flags: 64 });
                     return;
                 }
                 if (roundNumber < 1 || roundNumber > league.currentRound) {
                     await interaction.reply({
                         content: `Invalid round number. This tournament had ${league.currentRound} rounds.`,
-                        ephemeral: true
+                        flags: 64
                     });
                     return;
                 }
                 const matches = await leagueService.getRoundMatches(league.id, roundNumber);
                 if (matches.length === 0) {
-                    await interaction.reply({ content: `No matches found for round ${roundNumber}.`, ephemeral: true });
+                    await interaction.reply({ content: `No matches found for round ${roundNumber}.`, flags: 64 });
                     return;
                 }
                 const embed = new discord_js_1.EmbedBuilder()
@@ -173,11 +173,11 @@ exports.historyCommand = {
                 const playerFilter = interaction.options.getString('player');
                 const league = await leagueService.getLeagueByName(guildId, leagueName);
                 if (!league) {
-                    await interaction.reply({ content: `Tournament "${leagueName}" not found.`, ephemeral: true });
+                    await interaction.reply({ content: `Tournament "${leagueName}" not found.`, flags: 64 });
                     return;
                 }
                 if (league.status !== 'COMPLETED') {
-                    await interaction.reply({ content: 'This tournament has not been completed yet.', ephemeral: true });
+                    await interaction.reply({ content: 'This tournament has not been completed yet.', flags: 64 });
                     return;
                 }
                 let matches = await leagueService.getAllLeagueMatches(league.id);
@@ -192,7 +192,7 @@ exports.historyCommand = {
                     if (matches.length === 0) {
                         await interaction.reply({
                             content: `No matches found for player "${playerFilter}" in this tournament.`,
-                            ephemeral: true
+                            flags: 64
                         });
                         return;
                     }
@@ -240,7 +240,7 @@ exports.historyCommand = {
             console.error('Error executing history command:', error);
             await interaction.reply({
                 content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                ephemeral: true,
+                flags: 64,
             });
         }
     },

@@ -42,7 +42,7 @@ exports.statsCommand = {
         const subcommand = interaction.options.getSubcommand();
         const guildId = interaction.guildId;
         if (!guildId) {
-            await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+            await interaction.reply({ content: 'This command can only be used in a server.', flags: 64 });
             return;
         }
         if (subcommand === 'player') {
@@ -51,7 +51,7 @@ exports.statsCommand = {
             if (!stats || stats.tournaments === 0) {
                 await interaction.reply({
                     content: `${targetUser.username} hasn't participated in any tournaments yet.`,
-                    ephemeral: true
+                    flags: 64
                 });
                 return;
             }
@@ -97,7 +97,7 @@ exports.statsCommand = {
                     content: format
                         ? `No leaderboard data found for format: ${format}`
                         : 'No leaderboard data available yet.',
-                    ephemeral: true
+                    flags: 64
                 });
                 return;
             }
@@ -142,7 +142,7 @@ exports.statsCommand = {
             if (player1.id === player2.id) {
                 await interaction.reply({
                     content: 'Please select two different players.',
-                    ephemeral: true
+                    flags: 64
                 });
                 return;
             }
@@ -150,7 +150,7 @@ exports.statsCommand = {
             if (!matchup || matchup.totalMatches === 0) {
                 await interaction.reply({
                     content: `${player1.username} and ${player2.username} haven't played against each other yet.`,
-                    ephemeral: true
+                    flags: 64
                 });
                 return;
             }
