@@ -26,6 +26,8 @@ export interface League {
   status: string; // LeagueStatus enum values as strings
   currentRound: number;
   totalRounds?: number | null;
+  roundTimerMinutes?: number | null;
+  announcementChannelId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -123,6 +125,7 @@ export interface CreateLeagueOptions {
   hasTopCut?: boolean;
   topCutSize?: number;
   totalRounds?: number;
+  roundTimerMinutes?: number;
 }
 
 export interface MatchResult {

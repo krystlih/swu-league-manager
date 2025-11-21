@@ -5,6 +5,7 @@ import { RoundRepository } from '../data/repositories/roundRepository';
 import { MatchRepository } from '../data/repositories/matchRepository';
 import { AuditLogRepository } from '../data/repositories/auditLogRepository';
 import { TournamentService } from './tournamentService';
+import { RoundTimerService } from './roundTimerService';
 import {
   League,
   CreateLeagueOptions,
@@ -22,6 +23,7 @@ export class LeagueService {
   private matchRepo: MatchRepository;
   private auditLogRepo: AuditLogRepository;
   private tournamentService: TournamentService;
+  private timerService: RoundTimerService;
 
   constructor() {
     this.leagueRepo = new LeagueRepository();
@@ -31,6 +33,7 @@ export class LeagueService {
     this.matchRepo = new MatchRepository();
     this.auditLogRepo = new AuditLogRepository();
     this.tournamentService = new TournamentService();
+    this.timerService = RoundTimerService.getInstance();
   }
 
   async createLeague(options: CreateLeagueOptions): Promise<League> {
@@ -52,6 +55,10 @@ export class LeagueService {
 
   async getActiveLeagues(guildId: string): Promise<League[]> {
     return this.leagueRepo.findActiveByGuildId(guildId);
+  }
+
+  async updateLeague(leagueId: number, data: any): Promise<League> {
+    return this.leagueRepo.update(leagueId, data);
   }
 
   async getCompletedLeagues(guildId: string): Promise<League[]> {
@@ -462,6 +469,16 @@ export class LeagueService {
     await this.leagueRepo.update(leagueId, {
       currentRound: nextRoundNumber,
     });
+
+    // Start timer for this round if configured
+    if (league.roundTimerMinutes && league.announcementChannelId) {
+      await this.timerService.startRoundTimer(
+        leagueId,
+        nextRoundNumber,
+        league.guildId,
+        league.announcementChannelId
+      );
+    }
   }
 
   /**
@@ -506,6 +523,16 @@ export class LeagueService {
     await this.leagueRepo.update(leagueId, {
       currentRound: nextRoundNumber,
     });
+
+    // Start timer for this round if configured
+    if (league.roundTimerMinutes && league.announcementChannelId) {
+      await this.timerService.startRoundTimer(
+        leagueId,
+        nextRoundNumber,
+        league.guildId,
+        league.announcementChannelId
+      );
+    }
   }
 
   async findPlayerActiveMatch(leagueId: number, discordId: string): Promise<any> {

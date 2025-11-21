@@ -37,5 +37,16 @@ class RoundRepository {
             where: { id },
         });
     }
+    async update(leagueId, roundNumber, data) {
+        return prismaClient_1.prisma.round.update({
+            where: {
+                leagueId_roundNumber: {
+                    leagueId,
+                    roundNumber,
+                },
+            },
+            data,
+        });
+    }
 }
 exports.RoundRepository = RoundRepository;

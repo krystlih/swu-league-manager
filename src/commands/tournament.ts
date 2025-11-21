@@ -2,11 +2,13 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from '
 import { LeagueService } from '../services/leagueService';
 import { MatchRepository } from '../data/repositories/matchRepository';
 import { RegistrationRepository } from '../data/repositories/registrationRepository';
+import { RoundTimerService } from '../services/roundTimerService';
 import { generateTop8Bracket, generateTop4Bracket, generateTop2Bracket } from '../utils/bracketVisualizer';
 
 const leagueService = new LeagueService();
 const matchRepository = new MatchRepository();
 const registrationRepository = new RegistrationRepository();
+const timerService = RoundTimerService.getInstance();
 
 export const tournamentCommand = {
   data: new SlashCommandBuilder()
@@ -213,14 +215,44 @@ export const tournamentCommand = {
           return;
         }
 
+        // Store announcement channel for timer announcements
+        if (league.roundTimerMinutes && !league.announcementChannelId) {
+          await leagueService.updateLeague(leagueId, {
+            announcementChannelId: interaction.channelId
+          });
+        }
+
         await leagueService.startLeague(
           leagueId,
           interaction.user.id,
           interaction.user.username
         );
+        
+        // Start timer for Round 1 if configured
+        const updatedLeague = await leagueService.getLeague(leagueId);
+        if (updatedLeague && updatedLeague.currentRound === 1 && updatedLeague.roundTimerMinutes) {
+          await timerService.startRoundTimer(
+            leagueId,
+            1,
+            interaction.guildId!,
+            interaction.channelId
+          );
+        }
+        
         await interaction.reply(`League "${league.name}" has been started! Use /tournament nextround to generate round 1 pairings.`);
       } else if (subcommand === 'nextround') {
         const pairings = await leagueService.generateNextRound(leagueId);
+
+        // Start round timer if configured
+        const updatedLeague = await leagueService.getLeague(leagueId);
+        if (updatedLeague) {
+          await timerService.startRoundTimer(
+            leagueId,
+            updatedLeague.currentRound,
+            interaction.guildId!,
+            interaction.channelId
+          );
+        }
 
         const embed = new EmbedBuilder()
           .setColor(0x0099ff)
@@ -234,6 +266,13 @@ export const tournamentCommand = {
             value: `${pairing.player1Name} vs ${player2Name}`,
           });
         });
+
+        // Add timer info to embed if configured
+        if (updatedLeague?.roundTimerMinutes) {
+          embed.setFooter({ 
+            text: `Round timer: ${updatedLeague.roundTimerMinutes} minutes (starts in 5 minutes)` 
+          });
+        }
 
         await interaction.reply({ embeds: [embed] });
       } else if (subcommand === 'report') {

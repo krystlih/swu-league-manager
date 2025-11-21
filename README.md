@@ -62,6 +62,7 @@ DATABASE_URL="file:./dev.db"
 
 ### League Management
 - `/league create` - Create a new league with automatic round calculation
+  - **Optional:** `timer` parameter sets round timer in minutes (10-180)
 - `/league list` - View active leagues
 - `/league cancel` - Cancel a league (creator only)
 - `/league auditlog` - View modification history (creator only)
@@ -221,6 +222,17 @@ Core entities with relationships:
 - Top Cut sizes determined automatically
 - Tournaments auto-advance through Top Cut brackets
 - Tournaments auto-end when complete
+
+### Round Timer System
+- **Optional** timer per tournament (10-180 minutes)
+- 5-minute grace period before timer starts
+- Automatic announcements:
+  - Timer start (after 5 minute grace period)
+  - Every 15 minutes during the round
+  - Special warnings at 15, 10, and 5 minutes remaining
+  - Timer end notification
+- Non-blocking: Tournament managers complete rounds manually
+- Announcements sent to the channel where tournament was started
 
 ### Top Cut Bracket Visualization
 - ASCII art elimination brackets for Discord

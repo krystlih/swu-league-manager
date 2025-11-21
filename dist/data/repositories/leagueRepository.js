@@ -14,6 +14,7 @@ class LeagueRepository {
                 status: 'REGISTRATION',
                 currentRound: 0,
                 totalRounds: options.totalRounds,
+                roundTimerMinutes: options.roundTimerMinutes,
             },
         });
     }

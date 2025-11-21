@@ -40,4 +40,16 @@ export class RoundRepository {
       where: { id },
     });
   }
+
+  async update(leagueId: number, roundNumber: number, data: any): Promise<Round> {
+    return prisma.round.update({
+      where: {
+        leagueId_roundNumber: {
+          leagueId,
+          roundNumber,
+        },
+      },
+      data,
+    });
+  }
 }

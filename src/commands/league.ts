@@ -42,6 +42,14 @@ export const leagueCommand = {
             .setDescription('Total number of rounds (optional)')
             .setRequired(false)
         )
+        .addIntegerOption(option =>
+          option
+            .setName('timer')
+            .setDescription('Round timer in minutes (optional, e.g., 50 for 50 minutes)')
+            .setRequired(false)
+            .setMinValue(10)
+            .setMaxValue(180)
+        )
     )
     .addSubcommand(subcommand =>
       subcommand
@@ -93,6 +101,7 @@ export const leagueCommand = {
         const format = interaction.options.getString('format', true);
         const type = interaction.options.getString('type', true) as CompetitionType;
         const rounds = interaction.options.getInteger('rounds') || undefined;
+        const timer = interaction.options.getInteger('timer') || undefined;
 
         const league = await leagueService.createLeague({
           guildId: interaction.guildId!,
@@ -101,6 +110,7 @@ export const leagueCommand = {
           format,
           competitionType: type,
           totalRounds: rounds,
+          roundTimerMinutes: timer,
         });
 
         const embed = new EmbedBuilder()
@@ -206,6 +216,7 @@ export const leagueCommand = {
                 '• Choose a **name** for your league\n' +
                 '• Specify the **format** (e.g., Premier, Twin Suns, Limited)\n' +
                 '• Select **competition type** (Swiss, Swiss with Top Cut, etc.)\n' +
+                '• **Optional:** Set **round timer** (10-180 minutes)\n' +
                 '• **Automatic round calculation** based on player count\n' +
                 '• **Automatic top cut size** for Swiss with Top Cut format\n' +
                 '• League starts in REGISTRATION status',
@@ -303,6 +314,20 @@ export const leagueCommand = {
                 '• Displays top 3 with detailed stats\n' +
                 '• Changes league status to COMPLETED\n' +
                 '• **Note:** Most tournaments end automatically',
+              inline: false
+            },
+            {
+              name: '⏰ Round Timer System',
+              value: '**Setup:** Add `timer` parameter when creating league\n' +
+                '• Set timer duration (10-180 minutes)\n' +
+                '• 5-minute grace period before timer starts\n' +
+                '• Automatic announcements:\n' +
+                '  - Timer start (after grace period)\n' +
+                '  - Every 15 minutes during round\n' +
+                '  - At 15, 10, and 5 minutes remaining\n' +
+                '  - When timer ends\n' +
+                '• Timer is informational only\n' +
+                '• Tournament managers control round completion',
               inline: false
             },
             {

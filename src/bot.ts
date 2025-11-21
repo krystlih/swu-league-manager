@@ -3,6 +3,7 @@ import * as dotenv from 'dotenv';
 import { commands } from './commands';
 import readyEvent from './events/ready';
 import interactionCreateEvent from './events/interactionCreate';
+import { RoundTimerService } from './services/roundTimerService';
 
 dotenv.config();
 
@@ -20,6 +21,10 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
   ],
 });
+
+// Initialize timer service with client
+const timerService = RoundTimerService.getInstance();
+timerService.setClient(client);
 
 // Register event handlers
 client.once('ready', (readyClient) => readyEvent.execute(readyClient));

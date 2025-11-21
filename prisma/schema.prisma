@@ -20,6 +20,8 @@ model League {
   status            String             @default("REGISTRATION") // REGISTRATION, IN_PROGRESS, TOP_CUT, COMPLETED, CANCELLED
   currentRound      Int                @default(0)
   totalRounds       Int?
+  roundTimerMinutes Int?               // Optional round timer in minutes
+  announcementChannelId String?        // Channel where timer announcements are sent
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   
@@ -74,6 +76,8 @@ model Round {
   isTopCut          Boolean            @default(false)
   startedAt         DateTime           @default(now())
   completedAt       DateTime?
+  timerStartsAt     DateTime?          // When the round timer actually starts (after 5 min grace period)
+  timerEndsAt       DateTime?          // When the round timer ends
   
   league            League             @relation(fields: [leagueId], references: [id], onDelete: Cascade)
   matches           Match[]
