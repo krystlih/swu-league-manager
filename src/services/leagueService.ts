@@ -166,6 +166,7 @@ export class LeagueService {
     // Update league with calculated values (only if they weren't already set)
     await this.leagueRepo.update(leagueId, {
       status: LeagueStatus.IN_PROGRESS,
+      currentRound: 0, // Reset to 0 when starting
       totalRounds: totalRounds || league.totalRounds,
       topCutSize: topCutSize > 0 ? topCutSize : league.topCutSize,
     });
