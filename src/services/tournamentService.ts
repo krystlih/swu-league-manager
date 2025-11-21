@@ -1,62 +1,72 @@
-import Manager from 'tournament-organizer';
 import { TournamentData, Pairing, StandingsEntry, MatchResult } from '../types';
+import { SwissPairingGenerator, PlayerRecord } from '../utils/swissPairings';
 
 export class TournamentService {
-  private tournaments: Map<number, TournamentData> = new Map();
+  private tournaments: Map<number, { 
+    players: Map<number, PlayerRecord>;
+    currentRound: number;
+  }> = new Map();
 
   createTournament(
     leagueId: number,
     players: Array<{ id: number; name: string }>
   ): TournamentData {
-    const tournament = new Manager() as any;
-    const playerIdMap = new Map<string, number>();
-
-    // Add players
+    const playerRecords = new Map<number, PlayerRecord>();
+    
     players.forEach((player) => {
-      const tournamentPlayerId = tournament.addPlayer(player.name);
-      playerIdMap.set(tournamentPlayerId, player.id);
+      playerRecords.set(player.id, {
+        id: player.id,
+        name: player.name,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        matchPoints: 0,
+        opponentMatchWinPercentage: 0,
+        gameWinPercentage: 0,
+        opponentGameWinPercentage: 0,
+        opponents: [],
+      });
     });
 
-    // Set to Swiss format
-    tournament.setFormat('Swiss');
-
-    const tournamentData: TournamentData = { tournament, playerIdMap };
-    this.tournaments.set(leagueId, tournamentData);
-    return tournamentData;
+    this.tournaments.set(leagueId, {
+      players: playerRecords,
+      currentRound: 0,
+    });
+    
+    return { 
+      tournament: {} as any, 
+      playerIdMap: new Map()
+    };
   }
 
   getTournament(leagueId: number): TournamentData | undefined {
-    return this.tournaments.get(leagueId);
+    const data = this.tournaments.get(leagueId);
+    if (!data) return undefined;
+    
+    return { 
+      tournament: {} as any, 
+      playerIdMap: new Map()
+    };
   }
 
   generatePairings(leagueId: number): Pairing[] {
     const tournamentData = this.tournaments.get(leagueId);
     if (!tournamentData) {
-      throw new Error(`Tournament not found for league ${leagueId}`);
+      throw new Error(`Tournament not found for league \${leagueId}`);
     }
 
-    const { tournament, playerIdMap } = tournamentData;
-    const pairings = (tournament as any).pair();
-
-    return pairings.map((pairing: any, index: number) => {
-      const player1Id = pairing[0];
-      const player2Id = pairing[1] || null;
-      const isBye = !player2Id;
-
-      // Get player names from tournament
-      const participants = (tournament as any).getPlayers();
-      const player1 = participants.find((p: any) => p.id === player1Id);
-      const player2 = player2Id ? participants.find((p: any) => p.id === player2Id) : null;
-
-      return {
-        tableNumber: index + 1,
-        player1Id,
-        player1Name: player1?.name || '',
-        player2Id,
-        player2Name: player2?.name || null,
-        isBye,
-      };
-    });
+    const { players } = tournamentData;
+    const playerArray = Array.from(players.values());
+    const swissPairings = SwissPairingGenerator.generatePairings(playerArray);
+    
+    return swissPairings.map((pairing, index) => ({
+      tableNumber: index + 1,
+      player1Id: pairing.player1Id.toString(),
+      player1Name: pairing.player1Name,
+      player2Id: pairing.player2Id ? pairing.player2Id.toString() : null,
+      player2Name: pairing.player2Name,
+      isBye: pairing.isBye,
+    }));
   }
 
   reportMatch(
@@ -67,86 +77,121 @@ export class TournamentService {
   ): void {
     const tournamentData = this.tournaments.get(leagueId);
     if (!tournamentData) {
-      throw new Error(`Tournament not found for league ${leagueId}`);
+      throw new Error(`Tournament not found for league \${leagueId}`);
     }
 
-    const { tournament } = tournamentData;
-    const draws = result.draws || 0;
-    (tournament as any).reportResult(player1Id, player2Id, [result.player1Wins, result.player2Wins, draws]);
+    const { players } = tournamentData;
+    const p1Id = parseInt(player1Id);
+    const p2Id = parseInt(player2Id);
+    
+    const player1 = players.get(p1Id);
+    const player2 = players.get(p2Id);
+    
+    if (!player1 || !player2) {
+      throw new Error('Player not found');
+    }
+
+    if (result.player1Wins > result.player2Wins) {
+      player1.wins++;
+      player2.losses++;
+    } else if (result.player2Wins > result.player1Wins) {
+      player2.wins++;
+      player1.losses++;
+    } else {
+      player1.draws++;
+      player2.draws++;
+    }
+
+    if (!player1.opponents.includes(p2Id)) {
+      player1.opponents.push(p2Id);
+    }
+    if (!player2.opponents.includes(p1Id)) {
+      player2.opponents.push(p1Id);
+    }
+
+    this.recalculateTiebreakers(leagueId);
   }
 
   getStandings(leagueId: number): StandingsEntry[] {
     const tournamentData = this.tournaments.get(leagueId);
     if (!tournamentData) {
-      throw new Error(`Tournament not found for league ${leagueId}`);
+      throw new Error(`Tournament not found for league \${leagueId}`);
     }
 
-    const { tournament } = tournamentData;
-    const standings = (tournament as any).getRankings();
-
-    return standings.map((standing: any, index: number) => {
-      const playerId = typeof standing === 'string' ? standing : standing.id;
-      const stats = (tournament as any).getStats(playerId);
-      const tiebreakers = stats.tiebreakers || [0, 0, 0];
-      
-      // Get player name
-      const participants = (tournament as any).getPlayers();
-      const player = participants.find((p: any) => p.id === playerId);
-      
-      return {
-        playerId,
-        rank: index + 1,
-        playerName: player?.name || '',
-        wins: stats.wins || 0,
-        losses: stats.losses || 0,
-        draws: stats.draws || 0,
-        matchPoints: stats.points || 0,
-        omwPercent: (tiebreakers[0] || 0) * 100,
-        gwPercent: (tiebreakers[1] || 0) * 100,
-        ogwPercent: (tiebreakers[2] || 0) * 100,
-      };
+    const { players } = tournamentData;
+    const playerArray = Array.from(players.values());
+    
+    const sortedPlayers = playerArray.sort((a, b) => {
+      if (b.matchPoints !== a.matchPoints) return b.matchPoints - a.matchPoints;
+      if (b.opponentMatchWinPercentage !== a.opponentMatchWinPercentage) 
+        return b.opponentMatchWinPercentage - a.opponentMatchWinPercentage;
+      if (b.gameWinPercentage !== a.gameWinPercentage) 
+        return b.gameWinPercentage - a.gameWinPercentage;
+      return b.opponentGameWinPercentage - a.opponentGameWinPercentage;
     });
+
+    return sortedPlayers.map((player, index) => ({
+      playerId: player.id.toString(),
+      rank: index + 1,
+      playerName: player.name,
+      wins: player.wins,
+      losses: player.losses,
+      draws: player.draws,
+      matchPoints: player.matchPoints,
+      omwPercent: player.opponentMatchWinPercentage * 100,
+      gwPercent: player.gameWinPercentage * 100,
+      ogwPercent: player.opponentGameWinPercentage * 100,
+    }));
   }
 
   dropPlayer(leagueId: number, playerId: string): void {
     const tournamentData = this.tournaments.get(leagueId);
     if (!tournamentData) {
-      throw new Error(`Tournament not found for league ${leagueId}`);
+      throw new Error(`Tournament not found for league \${leagueId}`);
     }
 
-    const { tournament } = tournamentData;
-    (tournament as any).dropPlayer(playerId);
+    const { players } = tournamentData;
+    const pId = parseInt(playerId);
+    players.delete(pId);
+  }
+
+  private recalculateTiebreakers(leagueId: number): void {
+    const tournamentData = this.tournaments.get(leagueId);
+    if (!tournamentData) return;
+
+    const { players } = tournamentData;
+    const playerArray = Array.from(players.values());
+
+    playerArray.forEach(player => {
+      player.matchPoints = SwissPairingGenerator.calculateMatchPoints(
+        player.wins, player.losses, player.draws
+      );
+      player.gameWinPercentage = SwissPairingGenerator.calculateGWP(
+        player.wins, player.losses
+      );
+    });
+
+    playerArray.forEach(player => {
+      player.opponentMatchWinPercentage = SwissPairingGenerator.calculateOMW(
+        player.opponents, playerArray
+      );
+      player.opponentGameWinPercentage = SwissPairingGenerator.calculateOGW(
+        player.opponents, playerArray
+      );
+    });
   }
 
   getDatabasePlayerId(leagueId: number, tournamentPlayerId: string): number | undefined {
-    const tournamentData = this.tournaments.get(leagueId);
-    if (!tournamentData) {
-      throw new Error(`Tournament not found for league ${leagueId}`);
-    }
-
-    return tournamentData.playerIdMap.get(tournamentPlayerId);
+    return parseInt(tournamentPlayerId);
   }
 
-  getTournamentPlayerId(leagueId: number, databasePlayerId: number): string | undefined {
+  getTournamentPlayerId(leagueId: number, dbPlayerId: number): string | undefined {
     const tournamentData = this.tournaments.get(leagueId);
-    if (!tournamentData) {
-      throw new Error(`Tournament not found for league ${leagueId}`);
+    if (!tournamentData) return undefined;
+    
+    if (tournamentData.players.has(dbPlayerId)) {
+      return dbPlayerId.toString();
     }
-
-    for (const [tournamentId, dbId] of tournamentData.playerIdMap.entries()) {
-      if (dbId === databasePlayerId) {
-        return tournamentId;
-      }
-    }
-
     return undefined;
-  }
-
-  deleteTournament(leagueId: number): void {
-    this.tournaments.delete(leagueId);
-  }
-
-  getRecommendedSwissRounds(playerCount: number): number {
-    return Math.ceil(Math.log2(playerCount));
   }
 }

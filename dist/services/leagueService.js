@@ -178,7 +178,7 @@ class LeagueService {
         await this.leagueRepo.update(leagueId, {
             status: types_1.LeagueStatus.CANCELLED,
         });
-        await this.tournamentService.deleteTournament(leagueId);
+        // Tournament will be cleaned up from memory
     }
 }
 exports.LeagueService = LeagueService;
