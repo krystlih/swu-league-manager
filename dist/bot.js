@@ -42,6 +42,7 @@ const commands_1 = require("./commands");
 const ready_1 = __importDefault(require("./events/ready"));
 const interactionCreate_1 = __importDefault(require("./events/interactionCreate"));
 const roundTimerService_1 = require("./services/roundTimerService");
+const leagueService_1 = require("./services/leagueService");
 dotenv.config();
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -55,9 +56,11 @@ const client = new discord_js_1.Client({
         discord_js_1.GatewayIntentBits.GuildMessages,
     ],
 });
-// Initialize timer service with client
+// Initialize services with client
 const timerService = roundTimerService_1.RoundTimerService.getInstance();
 timerService.setClient(client);
+const leagueService = leagueService_1.LeagueService.getInstance();
+leagueService.setClient(client);
 // Register event handlers
 client.once('ready', (readyClient) => ready_1.default.execute(readyClient));
 client.on('interactionCreate', (interaction) => interactionCreate_1.default.execute(interaction));

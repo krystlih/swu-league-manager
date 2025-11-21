@@ -4,6 +4,7 @@ import { commands } from './commands';
 import readyEvent from './events/ready';
 import interactionCreateEvent from './events/interactionCreate';
 import { RoundTimerService } from './services/roundTimerService';
+import { LeagueService } from './services/leagueService';
 
 dotenv.config();
 
@@ -22,9 +23,12 @@ const client = new Client({
   ],
 });
 
-// Initialize timer service with client
+// Initialize services with client
 const timerService = RoundTimerService.getInstance();
 timerService.setClient(client);
+
+const leagueService = LeagueService.getInstance();
+leagueService.setClient(client);
 
 // Register event handlers
 client.once('ready', (readyClient) => readyEvent.execute(readyClient));

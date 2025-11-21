@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.manualRegisterCommand = void 0;
 const discord_js_1 = require("discord.js");
 const leagueService_1 = require("../services/leagueService");
-const leagueService = new leagueService_1.LeagueService();
+const leagueService = leagueService_1.LeagueService.getInstance();
 exports.manualRegisterCommand = {
     data: new discord_js_1.SlashCommandBuilder()
         .setName('manualregister')

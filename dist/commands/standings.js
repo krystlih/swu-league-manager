@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.standingsCommand = void 0;
 const discord_js_1 = require("discord.js");
 const leagueService_1 = require("../services/leagueService");
-const leagueService = new leagueService_1.LeagueService();
+const leagueService = leagueService_1.LeagueService.getInstance();
 exports.standingsCommand = {
     data: new discord_js_1.SlashCommandBuilder()
         .setName('standings')

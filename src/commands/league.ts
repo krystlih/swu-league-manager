@@ -2,7 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, Autocom
 import { LeagueService } from '../services/leagueService';
 import { CompetitionType } from '../types';
 
-const leagueService = new LeagueService();
+const leagueService = LeagueService.getInstance();
 
 export const leagueCommand = {
   data: new SlashCommandBuilder()

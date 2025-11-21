@@ -5,7 +5,7 @@ import { RegistrationRepository } from '../data/repositories/registrationReposit
 import { RoundTimerService } from '../services/roundTimerService';
 import { generateTop8Bracket, generateTop4Bracket, generateTop2Bracket } from '../utils/bracketVisualizer';
 
-const leagueService = new LeagueService();
+const leagueService = LeagueService.getInstance();
 const matchRepository = new MatchRepository();
 const registrationRepository = new RegistrationRepository();
 const timerService = RoundTimerService.getInstance();

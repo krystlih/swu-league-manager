@@ -9,9 +9,11 @@ const matchRepository_1 = require("../data/repositories/matchRepository");
 const auditLogRepository_1 = require("../data/repositories/auditLogRepository");
 const tournamentService_1 = require("./tournamentService");
 const roundTimerService_1 = require("./roundTimerService");
+const discord_js_1 = require("discord.js");
 const types_1 = require("../types");
 class LeagueService {
     constructor() {
+        this.client = null;
         this.leagueRepo = new leagueRepository_1.LeagueRepository();
         this.playerRepo = new playerRepository_1.PlayerRepository();
         this.registrationRepo = new registrationRepository_1.RegistrationRepository();
@@ -20,6 +22,15 @@ class LeagueService {
         this.auditLogRepo = new auditLogRepository_1.AuditLogRepository();
         this.tournamentService = new tournamentService_1.TournamentService();
         this.timerService = roundTimerService_1.RoundTimerService.getInstance();
+    }
+    static getInstance() {
+        if (!LeagueService.instance) {
+            LeagueService.instance = new LeagueService();
+        }
+        return LeagueService.instance;
+    }
+    setClient(client) {
+        this.client = client;
     }
     async createLeague(options) {
         return this.leagueRepo.create(options);
@@ -181,10 +192,14 @@ class LeagueService {
         if (league.totalRounds && nextRoundNumber > league.totalRounds) {
             // Swiss rounds are complete, check if we need Top Cut
             if (league.competitionType === 'SWISS_WITH_TOP_CUT' && !league.hasTopCut) {
-                throw new Error('Swiss rounds complete. Top Cut will start automatically.');
+                // Start top cut automatically
+                await this.startTopCut(leagueId);
+                throw new Error('Swiss rounds complete. Top Cut has been started.');
             }
             else {
-                throw new Error('All rounds are complete. Tournament will end automatically.');
+                // End tournament automatically
+                await this.autoEndTournament(leagueId);
+                throw new Error('All rounds are complete. Tournament has been ended.');
             }
         }
         // Generate new round
@@ -370,6 +385,54 @@ class LeagueService {
             description: `Tournament automatically ended. Winner: ${winner?.playerName || 'N/A'}`,
         });
         this.tournamentService.deleteTournament(leagueId);
+        // Post final standings to Discord if announcement channel is configured
+        if (this.client && league.announcementChannelId) {
+            try {
+                const channel = await this.client.channels.fetch(league.announcementChannelId);
+                if (channel && channel.isTextBased()) {
+                    const winnerRecord = winner ? `${winner.wins}-${winner.losses}${winner.draws > 0 ? `-${winner.draws}` : ''}` : 'N/A';
+                    const embed = new discord_js_1.EmbedBuilder()
+                        .setColor(0xffd700) // Gold color
+                        .setTitle(`🏆 ${league.name} - Tournament Complete! 🏆`)
+                        .setDescription(`**Champion: ${winner?.playerName || 'N/A'}**\n**Record: ${winnerRecord}**\n**Match Points: ${winner?.matchPoints || 0}**`)
+                        .addFields({
+                        name: '📊 Final Standings',
+                        value: standings.slice(0, 10).map((s, i) => {
+                            const record = `${s.wins}-${s.losses}${s.draws > 0 ? `-${s.draws}` : ''}`;
+                            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+                            return `${medal} **${s.playerName}** - ${record} (${s.matchPoints} pts)`;
+                        }).join('\n'),
+                        inline: false
+                    });
+                    // Add top 3 detailed stats
+                    if (standings.length >= 1) {
+                        const top3 = standings.slice(0, 3);
+                        top3.forEach((player, idx) => {
+                            const position = idx === 0 ? '🥇 Champion' : idx === 1 ? '🥈 Runner-Up' : '🥉 Third Place';
+                            embed.addFields({
+                                name: position,
+                                value: `**${player.playerName}**\n` +
+                                    `Record: ${player.wins}-${player.losses}-${player.draws}\n` +
+                                    `Match Points: ${player.matchPoints}\n` +
+                                    `OMW%: ${player.omwPercent.toFixed(2)}% | GW%: ${player.gwPercent.toFixed(2)}% | OGW%: ${player.ogwPercent.toFixed(2)}%`,
+                                inline: true
+                            });
+                        });
+                    }
+                    embed.addFields({
+                        name: '📋 Tournament Info',
+                        value: `**Format:** ${league.format}\n**Type:** ${league.competitionType}\n**Total Rounds:** ${league.currentRound}\n**Total Players:** ${standings.length}`,
+                        inline: false
+                    });
+                    embed.setFooter({ text: 'Tournament ended automatically' });
+                    embed.setTimestamp();
+                    await channel.send({ embeds: [embed] });
+                }
+            }
+            catch (error) {
+                console.error('Failed to post final standings:', error);
+            }
+        }
     }
     /**
      * Start top cut phase with single elimination bracket

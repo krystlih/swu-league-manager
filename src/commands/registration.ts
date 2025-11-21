@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { LeagueService } from '../services/leagueService';
 
-const leagueService = new LeagueService();
+const leagueService = LeagueService.getInstance();
 
 export const registrationCommand = {
   data: new SlashCommandBuilder()

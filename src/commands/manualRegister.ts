@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, AutocompleteInteraction } from 'discord.js';
 import { LeagueService } from '../services/leagueService';
 
-const leagueService = new LeagueService();
+const leagueService = LeagueService.getInstance();
 
 export const manualRegisterCommand = {
   data: new SlashCommandBuilder()
