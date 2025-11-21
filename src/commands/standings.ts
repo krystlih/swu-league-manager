@@ -79,9 +79,10 @@ export const standingsCommand = {
         // Get all leagues for this guild
         const leagues = await leagueService.getLeaguesByGuild(guildId);
         
-        // Filter based on what the user is typing
+        // Filter based on what the user is typing and exclude COMPLETED leagues
         const filtered = leagues
           .filter((league: any) => 
+            league.status !== 'COMPLETED' &&
             league.name.toLowerCase().includes(focusedOption.value.toLowerCase())
           )
           .slice(0, 25); // Discord limits to 25 choices

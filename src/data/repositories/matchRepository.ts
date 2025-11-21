@@ -71,7 +71,9 @@ export class MatchRepository {
     player2Wins: number,
     draws: number
   ): Promise<Match> {
-    return prisma.match.update({
+    console.log(`[DEBUG MatchRepository] reportResult called with:`, { id, player1Wins, player2Wins, draws });
+    
+    const result = await prisma.match.update({
       where: { id },
       data: {
         player1Wins,
@@ -80,6 +82,16 @@ export class MatchRepository {
         isCompleted: true,
       },
     });
+    
+    console.log(`[DEBUG MatchRepository] Match updated successfully:`, {
+      id: result.id,
+      player1Wins: result.player1Wins,
+      player2Wins: result.player2Wins,
+      draws: result.draws,
+      isCompleted: result.isCompleted,
+    });
+    
+    return result;
   }
 
   async deleteByRound(roundId: number): Promise<void> {

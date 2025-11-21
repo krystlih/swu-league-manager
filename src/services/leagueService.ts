@@ -54,6 +54,11 @@ export class LeagueService {
     return this.leagueRepo.findActiveByGuildId(guildId);
   }
 
+  async getCompletedLeagues(guildId: string): Promise<League[]> {
+    const allLeagues = await this.leagueRepo.findByGuildId(guildId);
+    return allLeagues.filter(l => l.status === LeagueStatus.COMPLETED);
+  }
+
   async registerPlayer(leagueId: number, discordId: string, username: string): Promise<void> {
     const league = await this.leagueRepo.findById(leagueId);
     if (!league) {
@@ -325,6 +330,15 @@ export class LeagueService {
     return this.matchRepo.findByLeague(leagueId);
   }
 
+  async getRoundMatches(leagueId: number, roundNumber: number): Promise<any[]> {
+    const round = await this.roundRepo.findByLeagueAndRound(leagueId, roundNumber);
+    if (!round) {
+      return [];
+    }
+
+    return this.matchRepo.findByRound(round.id);
+  }
+
   async cancelLeague(leagueId: number): Promise<void> {
     await this.leagueRepo.update(leagueId, {
       status: LeagueStatus.CANCELLED,
@@ -388,32 +402,56 @@ export class LeagueService {
     userId: string,
     username: string
   ): Promise<void> {
+    console.log(`[DEBUG LeagueService] modifyMatchResult called with:`, { matchId, result, userId, username });
+    
     // Get the match before modification for audit log
     const oldMatch = await this.matchRepo.findById(matchId);
     if (!oldMatch) {
       throw new Error('Match not found');
     }
 
-    const oldValue = {
+    console.log(`[DEBUG LeagueService] Old match state:`, {
       player1Wins: oldMatch.player1Wins,
       player2Wins: oldMatch.player2Wins,
       draws: oldMatch.draws,
       isCompleted: oldMatch.isCompleted,
+    });
+
+    const oldValue = {
+      player1Wins: oldMatch.player1Wins ?? 0,
+      player2Wins: oldMatch.player2Wins ?? 0,
+      draws: oldMatch.draws ?? 0,
+      isCompleted: oldMatch.isCompleted ?? false,
     };
 
     // Update the match with the new result
-    await this.matchRepo.reportResult(
+    console.log(`[DEBUG LeagueService] Calling matchRepo.reportResult...`);
+    const updatedMatch = await this.matchRepo.reportResult(
       matchId,
       result.player1Wins,
       result.player2Wins,
       result.draws || 0
     );
+    console.log(`[DEBUG LeagueService] matchRepo.reportResult completed, returned:`, {
+      id: updatedMatch.id,
+      player1Wins: updatedMatch.player1Wins,
+      player2Wins: updatedMatch.player2Wins,
+      draws: updatedMatch.draws,
+      isCompleted: updatedMatch.isCompleted,
+    });
     
-    // Get the match to update standings
+    // Get the match again to verify the update
     const match = await this.matchRepo.findById(matchId);
     if (!match) {
-      throw new Error('Match not found');
+      throw new Error('Match not found after update');
     }
+
+    console.log(`[DEBUG LeagueService] Match after update (re-fetched):`, {
+      player1Wins: match.player1Wins,
+      player2Wins: match.player2Wins,
+      draws: match.draws,
+      isCompleted: match.isCompleted,
+    });
 
     const newValue = {
       player1Wins: result.player1Wins,
@@ -425,6 +463,11 @@ export class LeagueService {
     // Log the change
     const player1Name = match.player1?.username || 'Unknown';
     const player2Name = match.player2?.username || 'BYE';
+    const oldScoreStr = oldValue.isCompleted 
+      ? `${oldValue.player1Wins}-${oldValue.player2Wins}${oldValue.draws > 0 ? `-${oldValue.draws}` : ''}`
+      : 'No result';
+    const newScoreStr = `${newValue.player1Wins}-${newValue.player2Wins}${newValue.draws > 0 ? `-${newValue.draws}` : ''}`;
+    
     await this.auditLogRepo.create({
       leagueId: match.leagueId,
       userId,
@@ -434,7 +477,7 @@ export class LeagueService {
       entityId: matchId,
       oldValue: JSON.stringify(oldValue),
       newValue: JSON.stringify(newValue),
-      description: `Modified match result for ${player1Name} vs ${player2Name} from ${oldValue.player1Wins}-${oldValue.player2Wins} to ${newValue.player1Wins}-${newValue.player2Wins}`,
+      description: `Modified match result for ${player1Name} vs ${player2Name} from ${oldScoreStr} to ${newScoreStr}`,
     });
 
     // Rebuild tournament state and recalculate standings
@@ -444,6 +487,8 @@ export class LeagueService {
     
     // Update standings in the database
     await this.updateStandings(match.leagueId);
+    
+    console.log(`[DEBUG LeagueService] modifyMatchResult completed successfully`);
   }
 
   async repairCurrentRound(

@@ -305,10 +305,18 @@ export const leagueCommand = {
               inline: false
             },
             {
-              name: '�📋 Managing Leagues',
+              name: ' Managing Leagues',
               value: '**View:** `/league list` - See all active leagues\n' +
                 '**Cancel:** `/league cancel` - Cancel a league\n' +
                 '**Help:** `/league help` - Show this guide',
+              inline: false
+            },
+            {
+              name: '📜 Tournament History',
+              value: '**List:** `/history list` - View all completed tournaments\n' +
+                '**Results:** `/history results` - See final standings of a completed tournament\n' +
+                '**Pairings:** `/history pairings` - View round pairings from past tournaments\n' +
+                '**Matches:** `/history matches` - Search match results, filter by player',
               inline: false
             },
             {
@@ -316,6 +324,7 @@ export const leagueCommand = {
               value: '• All league selections use **autocomplete** - start typing to filter\n' +
                 '• Swiss pairing uses official tiebreaker calculations\n' +
                 '• Only the league creator can start tournaments and use creator tools\n' +
+                '• Completed tournaments are archived and searchable in history\n' +
                 '• Leagues persist across bot restarts',
               inline: false
             }
@@ -345,7 +354,10 @@ export const leagueCommand = {
       const leagues = await leagueService.getLeaguesByGuild(interaction.guildId!);
 
       const filtered = leagues
-        .filter(league => league.name.toLowerCase().includes(focusedValue))
+        .filter(league => 
+          league.status !== 'COMPLETED' &&
+          league.name.toLowerCase().includes(focusedValue)
+        )
         .slice(0, 25)
         .map(league => ({
           name: `${league.name} - ${league.status}`,

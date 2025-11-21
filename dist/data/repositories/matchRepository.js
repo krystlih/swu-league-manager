@@ -53,7 +53,8 @@ class MatchRepository {
         });
     }
     async reportResult(id, player1Wins, player2Wins, draws) {
-        return prismaClient_1.prisma.match.update({
+        console.log(`[DEBUG MatchRepository] reportResult called with:`, { id, player1Wins, player2Wins, draws });
+        const result = await prismaClient_1.prisma.match.update({
             where: { id },
             data: {
                 player1Wins,
@@ -62,6 +63,14 @@ class MatchRepository {
                 isCompleted: true,
             },
         });
+        console.log(`[DEBUG MatchRepository] Match updated successfully:`, {
+            id: result.id,
+            player1Wins: result.player1Wins,
+            player2Wins: result.player2Wins,
+            draws: result.draws,
+            isCompleted: result.isCompleted,
+        });
+        return result;
     }
     async deleteByRound(roundId) {
         await prismaClient_1.prisma.match.deleteMany({

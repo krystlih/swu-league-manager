@@ -314,21 +314,46 @@ export const tournamentCommand = {
           return;
         }
 
-        await leagueService.modifyMatchResult(
-          matchId, 
-          {
-            player1Wins,
-            player2Wins,
-            draws,
-          },
-          interaction.user.id,
-          interaction.user.username
-        );
+        console.log(`[DEBUG] Modifying match ${matchId}: ${player1Wins}-${player2Wins}-${draws}`);
+        console.log(`[DEBUG] Match before modification:`, {
+          player1Wins: match.player1Wins,
+          player2Wins: match.player2Wins,
+          draws: match.draws,
+          isCompleted: match.isCompleted
+        });
 
-        const player2Name = match.player2 ? match.player2.username : 'BYE';
-        await interaction.reply(
-          `Match result modified: ${match.player1.username} ${player1Wins} - ${player2Wins} ${player2Name}${draws > 0 ? ` (${draws} draws)` : ''}`
-        );
+        try {
+          await leagueService.modifyMatchResult(
+            matchId, 
+            {
+              player1Wins,
+              player2Wins,
+              draws,
+            },
+            interaction.user.id,
+            interaction.user.username
+          );
+
+          // Verify the change was saved
+          const updatedMatch = await leagueService.getMatchById(matchId);
+          console.log(`[DEBUG] Match after modification:`, {
+            player1Wins: updatedMatch?.player1Wins,
+            player2Wins: updatedMatch?.player2Wins,
+            draws: updatedMatch?.draws,
+            isCompleted: updatedMatch?.isCompleted
+          });
+
+          const player2Name = match.player2 ? match.player2.username : 'BYE';
+          await interaction.reply(
+            `Match result modified: ${match.player1.username} ${player1Wins} - ${player2Wins} ${player2Name}${draws > 0 ? ` (${draws} draws)` : ''}`
+          );
+        } catch (error) {
+          console.error('[ERROR] Failed to modify match result:', error);
+          await interaction.reply({
+            content: `Error modifying match result: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            ephemeral: true
+          });
+        }
       } else if (subcommand === 'repairround') {
         // Check if the user is the league creator
         if (league.createdBy !== interaction.user.id) {
@@ -489,9 +514,10 @@ export const tournamentCommand = {
         // Get all leagues for this guild
         const leagues = await leagueService.getLeaguesByGuild(guildId);
         
-        // Filter based on what the user is typing
+        // Filter based on what the user is typing and exclude COMPLETED leagues
         const filtered = leagues
           .filter(league => 
+            league.status !== 'COMPLETED' &&
             league.name.toLowerCase().includes(focusedOption.value.toLowerCase())
           )
           .slice(0, 25); // Discord limits to 25 choices

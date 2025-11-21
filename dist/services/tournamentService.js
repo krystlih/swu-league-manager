@@ -160,15 +160,15 @@ class TournamentService {
      * This is useful when the bot restarts and loses in-memory state
      */
     async rebuildFromDatabase(leagueId, registrations, matches) {
-        // Create player records from registrations
+        // Create player records from registrations (initialize with 0 stats)
         const playerRecords = new Map();
         registrations.forEach((reg) => {
             playerRecords.set(reg.playerId, {
                 id: reg.playerId,
                 name: reg.player?.username || 'Unknown',
-                wins: reg.wins,
-                losses: reg.losses,
-                draws: reg.draws,
+                wins: 0, // Will be recalculated from matches
+                losses: 0, // Will be recalculated from matches
+                draws: 0, // Will be recalculated from matches
                 matchPoints: 0,
                 opponentMatchWinPercentage: 0,
                 gameWinPercentage: 0,
@@ -176,16 +176,53 @@ class TournamentService {
                 opponents: [],
             });
         });
-        // Rebuild opponent history from completed matches
+        // Recalculate wins/losses/draws from completed matches
         matches.forEach((match) => {
-            if (match.isCompleted && match.player2Id) {
+            if (match.isCompleted) {
                 const player1 = playerRecords.get(match.player1Id);
-                const player2 = playerRecords.get(match.player2Id);
-                if (player1 && !player1.opponents.includes(match.player2Id)) {
-                    player1.opponents.push(match.player2Id);
-                }
-                if (player2 && !player2.opponents.includes(match.player1Id)) {
-                    player2.opponents.push(match.player1Id);
+                if (player1) {
+                    // Handle bye matches
+                    if (match.isBye || !match.player2Id) {
+                        player1.wins += 1;
+                    }
+                    else {
+                        const player2 = playerRecords.get(match.player2Id);
+                        // Update opponent lists
+                        if (!player1.opponents.includes(match.player2Id)) {
+                            player1.opponents.push(match.player2Id);
+                        }
+                        if (player2 && !player2.opponents.includes(match.player1Id)) {
+                            player2.opponents.push(match.player1Id);
+                        }
+                        // Calculate match results based on game wins
+                        const p1GameWins = match.player1Wins || 0;
+                        const p2GameWins = match.player2Wins || 0;
+                        const matchDraws = match.draws || 0;
+                        if (match.isDraw) {
+                            // Match ended in a draw
+                            player1.draws += 1;
+                            if (player2)
+                                player2.draws += 1;
+                        }
+                        else if (p1GameWins > p2GameWins) {
+                            // Player 1 won
+                            player1.wins += 1;
+                            if (player2)
+                                player2.losses += 1;
+                        }
+                        else if (p2GameWins > p1GameWins) {
+                            // Player 2 won
+                            player1.losses += 1;
+                            if (player2)
+                                player2.wins += 1;
+                        }
+                        else {
+                            // Equal game wins means draw
+                            player1.draws += 1;
+                            if (player2)
+                                player2.draws += 1;
+                        }
+                    }
                 }
             }
         });
