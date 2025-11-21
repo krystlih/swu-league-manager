@@ -103,29 +103,40 @@ export const leagueCommand = {
         const rounds = interaction.options.getInteger('rounds') || undefined;
         const timer = interaction.options.getInteger('timer') || undefined;
 
-        const league = await leagueService.createLeague({
-          guildId: interaction.guildId!,
-          createdBy: interaction.user.id,
-          name,
-          format,
-          competitionType: type,
-          totalRounds: rounds,
-          roundTimerMinutes: timer,
-        });
+        try {
+          const league = await leagueService.createLeague({
+            guildId: interaction.guildId!,
+            createdBy: interaction.user.id,
+            name,
+            format,
+            competitionType: type,
+            totalRounds: rounds,
+            roundTimerMinutes: timer,
+          });
 
-        const embed = new EmbedBuilder()
-          .setColor(0x00ff00)
-          .setTitle('League Created!')
-          .addFields(
-            { name: 'League ID', value: league.id.toString(), inline: true },
-            { name: 'Name', value: league.name, inline: true },
-            { name: 'Format', value: league.format, inline: true },
-            { name: 'Type', value: league.competitionType, inline: true },
-            { name: 'Status', value: league.status, inline: true }
-          )
-          .setTimestamp();
+          const embed = new EmbedBuilder()
+            .setColor(0x00ff00)
+            .setTitle('League Created!')
+            .addFields(
+              { name: 'League ID', value: league.id.toString(), inline: true },
+              { name: 'Name', value: league.name, inline: true },
+              { name: 'Format', value: league.format, inline: true },
+              { name: 'Type', value: league.competitionType, inline: true },
+              { name: 'Status', value: league.status, inline: true }
+            )
+            .setTimestamp();
 
-        await interaction.reply({ embeds: [embed] });
+          await interaction.reply({ embeds: [embed] });
+        } catch (error: any) {
+          if (error.code === 'P2002' || error.message?.includes('Unique constraint')) {
+            await interaction.reply({
+              content: `A league named "${name}" already exists in this server. Please choose a different name.`,
+              ephemeral: true
+            });
+          } else {
+            throw error; // Re-throw other errors to be caught by outer catch
+          }
+        }
       } else if (subcommand === 'list') {
         const leagues = await leagueService.getActiveLeagues(interaction.guildId!);
 
