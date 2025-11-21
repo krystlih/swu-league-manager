@@ -31,16 +31,25 @@ class SwissPairingGenerator {
         const needsBye = sortedPlayers.length % 2 === 1;
         let byePlayerId = null;
         if (needsBye) {
-            // Find the lowest-ranked player who hasn't received a bye yet
-            for (let i = sortedPlayers.length - 1; i >= 0; i--) {
-                if (!sortedPlayers[i].hasReceivedBye) {
-                    byePlayerId = sortedPlayers[i].id;
-                    break;
-                }
+            // Check if this is round 1 (all players have 0 wins, 0 losses, 0 draws)
+            const isRoundOne = sortedPlayers.every(p => p.wins === 0 && p.losses === 0 && p.draws === 0);
+            if (isRoundOne) {
+                // Round 1: Random bye assignment
+                const randomIndex = Math.floor(Math.random() * sortedPlayers.length);
+                byePlayerId = sortedPlayers[randomIndex].id;
             }
-            // If everyone has had a bye, give it to the lowest-ranked player
-            if (byePlayerId === null) {
-                byePlayerId = sortedPlayers[sortedPlayers.length - 1].id;
+            else {
+                // Subsequent rounds: Find the lowest-ranked player who hasn't received a bye yet
+                for (let i = sortedPlayers.length - 1; i >= 0; i--) {
+                    if (!sortedPlayers[i].hasReceivedBye) {
+                        byePlayerId = sortedPlayers[i].id;
+                        break;
+                    }
+                }
+                // If everyone has had a bye, give it to the lowest-ranked player
+                if (byePlayerId === null) {
+                    byePlayerId = sortedPlayers[sortedPlayers.length - 1].id;
+                }
             }
             // Mark this player as paired (with bye)
             paired.add(byePlayerId);
