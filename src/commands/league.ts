@@ -454,12 +454,15 @@ export const leagueCommand = {
           .setFooter({ text: 'Tournaments now progress automatically! Top Cut and final rounds auto-advance.' })
           .setTimestamp();
 
+        // Defer reply immediately to prevent timeout
+        await interaction.deferReply({ flags: 64 });
+
         try {
           await interaction.user.send({ embeds: [embed] });
-          await interaction.reply({ content: 'I\'ve sent you a DM with the complete league system guide!', flags: 64 });
+          await interaction.editReply({ content: 'I\'ve sent you a DM with the complete league system guide!' });
         } catch (dmError) {
-          // If DM fails (user has DMs disabled), fall back to ephemeral message
-          await interaction.reply({ embeds: [embed], flags: 64 });
+          // If DM fails (user has DMs disabled), fall back to showing embed in channel
+          await interaction.editReply({ embeds: [embed] });
         }
       }
     } catch (error) {
