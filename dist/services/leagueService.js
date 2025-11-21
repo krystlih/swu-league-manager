@@ -390,9 +390,15 @@ class LeagueService {
         });
         this.tournamentService.deleteTournament(leagueId);
         // Post final standings to Discord if announcement channel is configured
+        console.log('Attempting to post final standings to Discord...');
+        console.log('Client exists:', !!this.client);
+        console.log('Announcement channel ID:', league.announcementChannelId);
         if (this.client && league.announcementChannelId) {
             try {
+                console.log('Fetching channel...');
                 const channel = await this.client.channels.fetch(league.announcementChannelId);
+                console.log('Channel fetched:', !!channel);
+                console.log('Is text based:', channel?.isTextBased());
                 if (channel && channel.isTextBased()) {
                     const winnerRecord = winner ? `${winner.wins}-${winner.losses}${winner.draws > 0 ? `-${winner.draws}` : ''}` : 'N/A';
                     const embed = new discord_js_1.EmbedBuilder()
@@ -430,12 +436,20 @@ class LeagueService {
                     });
                     embed.setFooter({ text: 'Tournament ended automatically' });
                     embed.setTimestamp();
+                    console.log('Sending embed to channel...');
                     await channel.send({ embeds: [embed] });
+                    console.log('Final standings posted successfully!');
+                }
+                else {
+                    console.log('Channel not found or not text-based');
                 }
             }
             catch (error) {
                 console.error('Failed to post final standings:', error);
             }
+        }
+        else {
+            console.log('Cannot post standings - client or channel not configured');
         }
     }
     /**
