@@ -14,6 +14,7 @@ export interface PlayerRecord {
   gameWinPercentage: number;
   opponentGameWinPercentage: number;
   opponents: number[];
+  hasReceivedBye?: boolean; // Track if player already got a bye
 }
 
 export interface SwissPairing {
@@ -78,6 +79,37 @@ export class SwissPairingGenerator {
         });
       } else {
         // Odd number of players - this player gets a bye
+        // Check if this player already had a bye
+        if (player1.hasReceivedBye) {
+          // Player already had a bye, try to find someone else
+          // Look for another unpaired player who hasn't had a bye yet
+          let byeCandidate: PlayerRecord | null = null;
+          for (let k = i + 1; k < sortedPlayers.length; k++) {
+            const candidate = sortedPlayers[k];
+            if (!paired.has(candidate.id) && !candidate.hasReceivedBye) {
+              byeCandidate = candidate;
+              break;
+            }
+          }
+          
+          if (byeCandidate) {
+            // Swap: give bye to candidate instead
+            paired.delete(player1.id);
+            paired.add(byeCandidate.id);
+            pairings.push({
+              player1Id: byeCandidate.id,
+              player1Name: byeCandidate.name,
+              player2Id: null,
+              player2Name: null,
+              isBye: true,
+            });
+            // player1 stays unpaired, will be processed in next iteration
+            i--; // Re-process this index
+            continue;
+          }
+        }
+        
+        // Give bye to player1 (either they haven't had one, or everyone has)
         pairings.push({
           player1Id: player1.id,
           player1Name: player1.name,

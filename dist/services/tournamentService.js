@@ -20,6 +20,7 @@ class TournamentService {
                 gameWinPercentage: 0,
                 opponentGameWinPercentage: 0,
                 opponents: [],
+                hasReceivedBye: false,
             });
         });
         this.tournaments.set(leagueId, {
@@ -48,6 +49,15 @@ class TournamentService {
         const { players } = tournamentData;
         const playerArray = Array.from(players.values());
         const swissPairings = swissPairings_1.SwissPairingGenerator.generatePairings(playerArray);
+        // Mark players who received byes
+        swissPairings.forEach(pairing => {
+            if (pairing.isBye) {
+                const player = players.get(pairing.player1Id);
+                if (player) {
+                    player.hasReceivedBye = true;
+                }
+            }
+        });
         return swissPairings.map((pairing, index) => ({
             tableNumber: index + 1,
             player1Id: pairing.player1Id.toString(),
@@ -174,6 +184,7 @@ class TournamentService {
                 gameWinPercentage: 0,
                 opponentGameWinPercentage: 0,
                 opponents: [],
+                hasReceivedBye: false, // Will be set if player had a bye
             });
         });
         // Recalculate wins/losses/draws from completed matches
@@ -184,6 +195,7 @@ class TournamentService {
                     // Handle bye matches
                     if (match.isBye || !match.player2Id) {
                         player1.wins += 1;
+                        player1.hasReceivedBye = true; // Mark that this player received a bye
                     }
                     else {
                         const player2 = playerRecords.get(match.player2Id);
