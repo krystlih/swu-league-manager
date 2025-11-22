@@ -580,7 +580,7 @@ To add new tournament formats:
 
 1. Add to `CompetitionType` enum in `types/index.ts`
 2. Update `TournamentService.createTournament()` to handle new format
-3. Add choice to `/league create` command in `commands/league.ts`
+3. Add choice to `/tournament create` command in `commands/tournament.ts`
 
 ### Custom Tiebreakers
 

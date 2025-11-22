@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MatchRepository = void 0;
 const prismaClient_1 = require("../prismaClient");
 class MatchRepository {
-    async create(leagueId, roundId, player1Id, player2Id, tableNumber, isBye = false) {
+    async create(leagueId, roundId, player1Id, player2Id, tableNumber, isBye = false, bracketPosition, isLosersBracket, isGrandFinals, isBracketReset) {
         const data = {
             leagueId,
             roundId,
@@ -13,6 +13,18 @@ class MatchRepository {
         };
         if (player2Id !== null) {
             data.player2Id = player2Id;
+        }
+        if (bracketPosition) {
+            data.bracketPosition = bracketPosition;
+        }
+        if (isLosersBracket !== undefined) {
+            data.isLosersBracket = isLosersBracket;
+        }
+        if (isGrandFinals !== undefined) {
+            data.isGrandFinals = isGrandFinals;
+        }
+        if (isBracketReset !== undefined) {
+            data.isBracketReset = isBracketReset;
         }
         return prismaClient_1.prisma.match.create({ data });
     }

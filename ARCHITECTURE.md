@@ -56,13 +56,12 @@ discord-league-manager/
 │   │       ├── roundRepository.ts
 │   │       └── matchRepository.ts
 │   ├── services/                   # Business logic layer
-│   │   ├── leagueService.ts        # Main league orchestration
+│   │   ├── leagueService.ts        # Main tournament orchestration
 │   │   └── tournamentService.ts    # Swiss pairing wrapper
 │   ├── commands/                   # Discord slash commands
 │   │   ├── index.ts                # Command collection
-│   │   ├── league.ts               # League management
+│   │   ├── tournament.ts           # Tournament management & operations
 │   │   ├── registration.ts         # Player registration
-│   │   ├── tournament.ts           # Tournament operations
 │   │   └── standings.ts            # View standings
 │   └── events/                     # Discord event handlers
 │       ├── ready.ts                # Bot ready event
@@ -89,15 +88,15 @@ discord-league-manager/
 
 **Example**:
 ```typescript
-// commands/league.ts
-export const leagueCommand = {
+// commands/tournament.ts
+export const tournamentCommand = {
   data: new SlashCommandBuilder()
-    .setName('league')
+    .setName('tournament')
     .addSubcommand(...),
   
   async execute(interaction: ChatInputCommandInteraction) {
     const name = interaction.options.getString('name', true);
-    const league = await leagueService.createLeague({...});
+    const tournament = await leagueService.createLeague({...});
     await interaction.reply({ embeds: [embed] });
   }
 };
@@ -174,12 +173,12 @@ export class LeagueRepository {
 
 ## Data Flow Examples
 
-### Creating and Starting a League
+### Creating and Starting a Tournament
 
 ```
-User: /league create name:"FNM" format:"Modern" type:"Swiss"
+User: /tournament create name:"FNM" format:"Modern" type:"Swiss"
   ↓
-LeagueCommand
+TournamentCommand
   ↓ (parse options)
 LeagueService.createLeague()
   ↓ (validate, prepare data)
@@ -191,7 +190,7 @@ LeagueRepository
   ↑ (return League)
 LeagueService
   ↑ (format response)
-LeagueCommand
+TournamentCommand
   ↓ (send embed)
 Discord: Shows success message
 ```

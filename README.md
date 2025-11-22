@@ -60,17 +60,18 @@ DATABASE_URL="file:./dev.db"
 
 ## 📋 Commands
 
-### League Management
-- `/league create` - Create a new league
+### Tournament Management
+- `/tournament create` - Create a new tournament
   - **Optional:** `rounds` parameter (if not set, auto-calculated based on player count)
   - **Optional:** `timer` parameter sets round timer in minutes (10-180)
-- `/league list` - View active leagues
-- `/league cancel` - Cancel a league (creator only)
-- `/league auditlog` - View modification history (creator only)
-- `/league help` - Complete in-bot guide
+- `/tournament list` - View active tournaments
+- `/tournament cancel` - Cancel a tournament (creator only)
+- `/tournament delete` - Permanently delete a tournament (creator only)
+- `/tournament auditlog` - View modification history (creator only)
+- `/tournament help` - Complete in-bot guide
 
 ### Player Registration
-- `/register` - Register for a league
+- `/register` - Register for a tournament
 - `/manualregister` - Manually register users (creator only)
 
 ### Tournament Operations
@@ -80,7 +81,7 @@ DATABASE_URL="file:./dev.db"
 - `/tournament pairings` - View current round matchups
 - `/tournament drop` - Drop from active tournament
 - `/tournament end` - Manually end tournament (creator only)
-- `/tournament bracket` - View Top Cut elimination bracket
+- `/tournament bracket` - View Top Cut or elimination bracket
 
 ### Creator Tools
 - `/tournament findmatch` - Search for matches by player
@@ -105,7 +106,7 @@ DATABASE_URL="file:./dev.db"
 
 1. **Create & Register**
    ```
-   /league create name:"FNM Premier" format:"Premier" type:"Swiss with Top Cut"
+   /tournament create name:"FNM Premier" format:"Premier" type:"Swiss with Top Cut"
    Players use /register to join
    ```
 
@@ -134,7 +135,7 @@ DATABASE_URL="file:./dev.db"
    ```
 
 ### Swiss Round Calculation
-*Applied automatically if rounds not specified during league creation*
+*Applied automatically if rounds not specified during tournament creation*
 
 - **2 players** → 1 round
 - **3-4 players** → 2 rounds
@@ -145,7 +146,7 @@ DATABASE_URL="file:./dev.db"
 - **65-128 players** → 7 rounds
 - **129+ players** → 8 rounds
 
-**Note:** You can manually override round count when creating a league. The system prevents generating rounds beyond the defined limit.
+**Note:** You can manually override round count when creating a tournament. The system prevents generating rounds beyond the defined limit.
 
 ### Bye Handling
 - **Automatic**: Byes are automatically reported as 2-0-0 wins
@@ -161,9 +162,9 @@ DATABASE_URL="file:./dev.db"
 
 ## 📚 Documentation
 
-- **Built-in Help**: Use `/league help` for complete in-bot guide
+- **Built-in Help**: Use `/tournament help` for complete in-bot guide
 - Automatic tournament progression with Swiss and Top Cut
-- All commands use autocomplete for easy league selection
+- All commands use autocomplete for easy tournament selection
 - Creator-only controls for tournament management
 - Complete audit trail of all modifications
 ## 🛠️ Technology Stack
@@ -181,9 +182,8 @@ src/
 ├── bot.ts                    # Entry point
 ├── types/                    # TypeScript interfaces
 ├── commands/                 # Discord slash commands
-│   ├── league.ts            # League management
+│   ├── tournament.ts        # Tournament management & operations
 │   ├── registration.ts      # Player registration
-│   ├── tournament.ts        # Tournament operations
 │   ├── standings.ts         # Standings display
 │   ├── stats.ts             # Player statistics
 │   ├── history.ts           # Tournament history

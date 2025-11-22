@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.commands = void 0;
 const discord_js_1 = require("discord.js");
-const league_1 = require("./league");
 const registration_1 = require("./registration");
 const manualRegister_1 = require("./manualRegister");
 const tournament_1 = require("./tournament");
@@ -10,7 +9,6 @@ const standings_1 = require("./standings");
 const history_1 = require("./history");
 const stats_1 = require("./stats");
 exports.commands = new discord_js_1.Collection();
-exports.commands.set(league_1.leagueCommand.data.name, league_1.leagueCommand);
 exports.commands.set(registration_1.registrationCommand.data.name, registration_1.registrationCommand);
 exports.commands.set(manualRegister_1.manualRegisterCommand.data.name, manualRegister_1.manualRegisterCommand);
 exports.commands.set(tournament_1.tournamentCommand.data.name, tournament_1.tournamentCommand);

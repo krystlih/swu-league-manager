@@ -81,6 +81,10 @@ export interface Match {
   isBye: boolean;
   isCompleted: boolean;
   tableNumber?: number | null;
+  bracketPosition?: string | null;
+  isLosersBracket?: boolean;
+  isGrandFinals?: boolean;
+  isBracketReset?: boolean;
   reportedAt?: Date | null;
   createdAt: Date;
   player1?: Player;

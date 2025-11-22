@@ -7,10 +7,10 @@ const leagueService = leagueService_1.LeagueService.getInstance();
 exports.manualRegisterCommand = {
     data: new discord_js_1.SlashCommandBuilder()
         .setName('manualregister')
-        .setDescription('[Creator Only] Manually register a user for a league')
+        .setDescription('[Creator Only] Manually register a user for a tournament')
         .addStringOption(option => option
-        .setName('league')
-        .setDescription('Select the league')
+        .setName('tournament')
+        .setDescription('Select the tournament')
         .setRequired(true)
         .setAutocomplete(true))
         .addUserOption(option => option
@@ -18,7 +18,7 @@ exports.manualRegisterCommand = {
         .setDescription('Select the user to register')
         .setRequired(true)),
     async execute(interaction) {
-        const leagueName = interaction.options.getString('league', true);
+        const tournamentName = interaction.options.getString('tournament', true);
         const user = interaction.options.getUser('user', true);
         const guildId = interaction.guildId;
         if (!guildId) {
@@ -26,15 +26,15 @@ exports.manualRegisterCommand = {
             return;
         }
         try {
-            const league = await leagueService.getLeagueByName(guildId, leagueName);
+            const league = await leagueService.getLeagueByName(guildId, tournamentName);
             if (!league) {
-                await interaction.reply({ content: `League "${leagueName}" not found.`, flags: 64 });
+                await interaction.reply({ content: `Tournament "${tournamentName}" not found.`, flags: 64 });
                 return;
             }
-            // Check if the user is the league creator
+            // Check if the user is the tournament creator
             if (league.createdBy !== interaction.user.id) {
                 await interaction.reply({
-                    content: 'Only the league creator can manually register users.',
+                    content: 'Only the tournament creator can manually register users.',
                     flags: 64
                 });
                 return;

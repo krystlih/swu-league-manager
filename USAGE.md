@@ -2,19 +2,19 @@
 
 ## Overview
 
-This bot helps you run TCG (Trading Card Game) leagues with automated Swiss pairing, standings tracking, and multiple tournament formats.
+This bot helps you run TCG (Trading Card Game) tournaments with automated Swiss pairing, standings tracking, and multiple tournament formats.
 
 ## Commands
 
-### 1. League Management (`/league`)
+### 1. Tournament Management (`/tournament`)
 
-#### Create a League
+#### Create a Tournament
 ```
-/league create name:"Weekly Modern" format:"Modern" type:"Swiss" rounds:5
+/tournament create name:"Weekly Modern" format:"Modern" type:"Swiss" rounds:5
 ```
 
 **Parameters:**
-- `name` (required): Name of your league
+- `name` (required): Name of your tournament
 - `format` (required): Game format (e.g., "Standard", "Modern", "Commander")
 - `type` (required): Competition type
   - **Swiss**: Standard Swiss pairing
@@ -23,54 +23,75 @@ This bot helps you run TCG (Trading Card Game) leagues with automated Swiss pair
   - **Single Elimination**: Single elimination bracket
 - `rounds` (optional): Total number of rounds (auto-calculated if not specified)
 
-**Response:** League created with ID, status set to REGISTRATION
+**Response:** Tournament created with ID, status set to REGISTRATION
 
-#### List Active Leagues
+#### List Active Tournaments
 ```
-/league list
-```
-
-Shows all leagues currently accepting registrations or in progress.
-
-#### Cancel a League
-```
-/league cancel league_id:1
+/tournament list
 ```
 
-Cancels a league and removes all tournament data.
+Shows all tournaments currently accepting registrations or in progress.
+
+#### Cancel a Tournament
+```
+/tournament cancel tournament:<tournament_name>
+```
+
+Cancels a tournament and removes all tournament data.
+
+#### Delete a Tournament
+```
+/tournament delete tournament:<tournament_name>
+```
+
+Permanently deletes a tournament from the database.
+
+#### View Audit Log
+```
+/tournament auditlog tournament:<tournament_name>
+```
+
+View modification history for a tournament (creator only).
+
+#### Get Help
+```
+/tournament help
+```
+
+Displays comprehensive in-bot guide for all tournament commands.
 
 ---
 
 ### 2. Player Registration (`/register`)
 
 ```
-/register league_id:1
+/register tournament:<tournament_name>
 ```
 
-Registers the user who runs the command for the specified league.
+Registers the user who runs the command for the specified tournament.
 
 **Requirements:**
-- League must be in REGISTRATION status
+- Tournament must be in REGISTRATION status
 - Player cannot already be registered
-- At least 2 players needed to start a league
+- At least 2 players needed to start a tournament
 
 ---
 
-### 3. Tournament Management (`/tournament`)
+### 3. Tournament Operations (`/tournament`)
 
-#### Start a League
+#### Start a Tournament
 ```
-/tournament start league_id:1
+/tournament start tournament:<tournament_name>
 ```
 
 **What it does:**
-- Changes league status from REGISTRATION to IN_PROGRESS
+- Changes tournament status from REGISTRATION to IN_PROGRESS
 - Creates tournament instance with all registered players
-- League must have at least 2 players
+- Tournament must have at least 2 players
 
 #### Generate Next Round Pairings
 ```
-/tournament nextround league_id:1
+/tournament nextround tournament:<tournament_name>
 ```
 
 **What it does:**
@@ -81,17 +102,17 @@ Registers the user who runs the command for the specified league.
 
 **Requirements:**
 - All matches from current round must be reported
-- League must be IN_PROGRESS
+- Tournament must be IN_PROGRESS
 
 **Response:** Displays pairings with table numbers
 
 #### Report Match Result
 ```
-/tournament report match_id:5 player1_wins:2 player2_wins:1 draws:0
+/tournament report match:<match_id> player1_wins:2 player2_wins:1 draws:0
 ```
 
 **Parameters:**
-- `match_id`: The match ID (shown in pairings)
+- `match`: The match to report (autocomplete provided)
 - `player1_wins`: Number of games won by player 1
 - `player2_wins`: Number of games won by player 2
 - `draws`: Number of drawn games (optional, default: 0)
@@ -104,7 +125,7 @@ Registers the user who runs the command for the specified league.
 
 #### View Current Round Pairings
 ```
-/tournament pairings league_id:1
+/tournament pairings tournament:<tournament_name>
 ```
 
 Shows all matches for the current round with:
@@ -113,19 +134,54 @@ Shows all matches for the current round with:
 - Match IDs for reporting results
 - Completion status (⏳ pending, ✅ complete)
 
-#### Drop from League
+#### Drop from Tournament
 ```
-/tournament drop league_id:1
+/tournament drop tournament:<tournament_name>
 ```
 
-Drops the user from the league. They won't receive future pairings.
+Drops the user from the tournament. They won't receive future pairings.
+
+#### End Tournament
+```
+/tournament end tournament:<tournament_name>
+```
+
+Manually ends a tournament (creator only).
+
+#### View Bracket
+```
+/tournament bracket tournament:<tournament_name>
+```
+
+View elimination bracket for top cut or elimination tournaments.
+
+#### Find Match
+```
+/tournament findmatch tournament:<tournament_name> player:<player_name>
+```
+
+Search for matches by player (creator only).
+
+#### Modify Match
+```
+/tournament modifymatch match:<match_id> player1_wins:2 player2_wins:1
+```
+
+Correct match results (creator only).
+
+#### Repair Round
+```
+/tournament repairround tournament:<tournament_name>
+```
+
+Regenerate current round if pairings are incorrect (creator only).
 
 ---
 
 ### 4. Standings (`/standings`)
 
 ```
-/standings league_id:1
+/standings tournament:<tournament_name>
 ```
 
 **Displays:**
@@ -147,52 +203,52 @@ Drops the user from the league. They won't receive future pairings.
 ### Example 1: Basic Swiss Tournament
 
 ```bash
-# 1. Create league
-/league create name:"FNM Modern" format:"Modern" type:"Swiss" rounds:4
+# 1. Create tournament
+/tournament create name:"FNM Modern" format:"Modern" type:"Swiss" rounds:4
 
-# 2. Players register (response shows "League created with ID: 1")
-/register league_id:1
+# 2. Players register
+/register tournament:"FNM Modern"
 
 # 3. Start when ready (need at least 2 players)
-/tournament start league_id:1
+/tournament start tournament:"FNM Modern"
 
 # 4. Generate first round
-/tournament nextround league_id:1
+/tournament nextround tournament:"FNM Modern"
 # Shows: Table 1: Alice vs Bob, Table 2: Carol vs Dave, etc.
 
 # 5. Players play matches, then report results
-/tournament report match_id:1 player1_wins:2 player2_wins:0
-/tournament report match_id:2 player1_wins:2 player2_wins:1
+/tournament report match:<match_id> player1_wins:2 player2_wins:0
+/tournament report match:<match_id> player1_wins:2 player2_wins:1
 
 # 6. Check standings after round
-/standings league_id:1
+/standings tournament:"FNM Modern"
 
 # 7. Generate next round when all matches complete
-/tournament nextround league_id:1
+/tournament nextround tournament:"FNM Modern"
 
 # 8. Repeat steps 5-7 for remaining rounds
 ```
 
-### Example 2: Multiple Concurrent Leagues
+### Example 2: Multiple Concurrent Tournaments
 
 ```bash
-# Create different leagues
-/league create name:"Standard League" format:"Standard" type:"Swiss"
-/league create name:"Legacy Tournament" format:"Legacy" type:"Swiss with Top Cut"
+# Create different tournaments
+/tournament create name:"Standard League" format:"Standard" type:"Swiss"
+/tournament create name:"Legacy Tournament" format:"Legacy" type:"Swiss with Top Cut"
 
-# View all active leagues
-/league list
+# View all active tournaments
+/tournament list
 
-# Players can register for multiple leagues
-/register league_id:1
-/register league_id:2
+# Players can register for multiple tournaments
+/register tournament:"Standard League"
+/register tournament:"Legacy Tournament"
 ```
 
 ### Example 3: Handling Odd Players (BYE)
 
 ```bash
 # With 9 players, one gets a BYE each round
-/tournament nextround league_id:1
+/tournament nextround tournament:"FNM Modern"
 # Shows: Table 1: Alice vs Bob, ..., Table 4: Eve vs BYE
 
 # BYE matches auto-complete with 2-0 for the paired player

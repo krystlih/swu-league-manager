@@ -8,7 +8,11 @@ export class MatchRepository {
     player1Id: number,
     player2Id: number | null,
     tableNumber: number,
-    isBye: boolean = false
+    isBye: boolean = false,
+    bracketPosition?: string,
+    isLosersBracket?: boolean,
+    isGrandFinals?: boolean,
+    isBracketReset?: boolean
   ): Promise<Match> {
     const data: any = {
       leagueId,
@@ -20,6 +24,22 @@ export class MatchRepository {
     
     if (player2Id !== null) {
       data.player2Id = player2Id;
+    }
+
+    if (bracketPosition) {
+      data.bracketPosition = bracketPosition;
+    }
+
+    if (isLosersBracket !== undefined) {
+      data.isLosersBracket = isLosersBracket;
+    }
+
+    if (isGrandFinals !== undefined) {
+      data.isGrandFinals = isGrandFinals;
+    }
+
+    if (isBracketReset !== undefined) {
+      data.isBracketReset = isBracketReset;
     }
     
     return prisma.match.create({ data });

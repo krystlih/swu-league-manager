@@ -4,6 +4,7 @@ import { MatchRepository } from '../data/repositories/matchRepository';
 import { RegistrationRepository } from '../data/repositories/registrationRepository';
 import { RoundTimerService } from '../services/roundTimerService';
 import { generateTop8Bracket, generateTop4Bracket, generateTop2Bracket } from '../utils/bracketVisualizer';
+import { CompetitionType } from '../types';
 
 const leagueService = LeagueService.getInstance();
 const matchRepository = new MatchRepository();
@@ -16,12 +17,65 @@ export const tournamentCommand = {
     .setDescription('Tournament management')
     .addSubcommand(subcommand =>
       subcommand
-        .setName('start')
-        .setDescription('Start a league')
+        .setName('create')
+        .setDescription('Create a new tournament')
         .addStringOption(option =>
           option
-            .setName('league')
-            .setDescription('Select the league to start')
+            .setName('name')
+            .setDescription('Name of the tournament')
+            .setRequired(true)
+        )
+        .addStringOption(option =>
+          option
+            .setName('format')
+            .setDescription('Format of the tournament (e.g., Standard, Hyperspace)')
+            .setRequired(true)
+        )
+        .addStringOption(option =>
+          option
+            .setName('type')
+            .setDescription('Competition type')
+            .setRequired(true)
+            .addChoices(
+              { name: 'Swiss', value: 'SWISS' },
+              { name: 'Swiss with Top Cut', value: 'SWISS_WITH_TOP_CUT' },
+              { name: 'Double Elimination', value: 'DOUBLE_ELIMINATION' },
+              { name: 'Single Elimination', value: 'SINGLE_ELIMINATION' }
+            )
+        )
+        .addIntegerOption(option =>
+          option
+            .setName('rounds')
+            .setDescription('Total number of rounds (optional, auto-calculated if not provided)')
+            .setRequired(false)
+        )
+        .addIntegerOption(option =>
+          option
+            .setName('timer')
+            .setDescription('Round timer in minutes (optional, e.g., 50 for 50 minutes)')
+            .setRequired(false)
+            .setMinValue(10)
+            .setMaxValue(180)
+        )
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('list')
+        .setDescription('List active tournaments')
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('help')
+        .setDescription('Learn how to use the tournament system')
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('start')
+        .setDescription('Start a tournament')
+        .addStringOption(option =>
+          option
+            .setName('tournament')
+            .setDescription('Select the tournament to start')
             .setRequired(true)
             .setAutocomplete(true)
         )
@@ -32,8 +86,8 @@ export const tournamentCommand = {
         .setDescription('Generate pairings for next round')
         .addStringOption(option =>
           option
-            .setName('league')
-            .setDescription('Select the league')
+            .setName('tournament')
+            .setDescription('Select the tournament')
             .setRequired(true)
             .setAutocomplete(true)
         )
@@ -44,8 +98,8 @@ export const tournamentCommand = {
         .setDescription('Report match result for your current pairing')
         .addStringOption(option =>
           option
-            .setName('league')
-            .setDescription('Select the league')
+            .setName('tournament')
+            .setDescription('Select the tournament')
             .setRequired(true)
             .setAutocomplete(true)
         )
@@ -74,8 +128,8 @@ export const tournamentCommand = {
         .setDescription('View current round pairings')
         .addStringOption(option =>
           option
-            .setName('league')
-            .setDescription('Select the league')
+            .setName('tournament')
+            .setDescription('Select the tournament')
             .setRequired(true)
             .setAutocomplete(true)
         )
@@ -83,13 +137,55 @@ export const tournamentCommand = {
     .addSubcommand(subcommand =>
       subcommand
         .setName('drop')
-        .setDescription('Drop from a league')
+        .setDescription('Drop from a tournament')
         .addStringOption(option =>
           option
-            .setName('league')
-            .setDescription('Select the league')
+            .setName('tournament')
+            .setDescription('Select the tournament')
             .setRequired(true)
             .setAutocomplete(true)
+        )
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('cancel')
+        .setDescription('[Creator Only] Cancel a tournament')
+        .addStringOption(option =>
+          option
+            .setName('tournament')
+            .setDescription('The tournament to cancel')
+            .setRequired(true)
+            .setAutocomplete(true)
+        )
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('delete')
+        .setDescription('[Creator Only] Permanently delete a tournament and all its data')
+        .addStringOption(option =>
+          option
+            .setName('tournament')
+            .setDescription('The tournament to delete')
+            .setRequired(true)
+            .setAutocomplete(true)
+        )
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('auditlog')
+        .setDescription('[Creator Only] View audit log of tournament changes')
+        .addStringOption(option =>
+          option
+            .setName('tournament')
+            .setDescription('Select the tournament')
+            .setRequired(true)
+            .setAutocomplete(true)
+        )
+        .addIntegerOption(option =>
+          option
+            .setName('limit')
+            .setDescription('Number of recent entries to show (default: 10)')
+            .setRequired(false)
         )
     )
     .addSubcommand(subcommand =>
@@ -98,8 +194,8 @@ export const tournamentCommand = {
         .setDescription('[Creator Only] Modify a match result')
         .addStringOption(option =>
           option
-            .setName('league')
-            .setDescription('Select the league')
+            .setName('tournament')
+            .setDescription('Select the tournament')
             .setRequired(true)
             .setAutocomplete(true)
         )
@@ -135,8 +231,8 @@ export const tournamentCommand = {
         .setDescription('[Creator Only] Regenerate pairings for the current round')
         .addStringOption(option =>
           option
-            .setName('league')
-            .setDescription('Select the league')
+            .setName('tournament')
+            .setDescription('Select the tournament')
             .setRequired(true)
             .setAutocomplete(true)
         )
@@ -147,8 +243,8 @@ export const tournamentCommand = {
         .setDescription('Find match IDs by player name')
         .addStringOption(option =>
           option
-            .setName('league')
-            .setDescription('Select the league')
+            .setName('tournament')
+            .setDescription('Select the tournament')
             .setRequired(true)
             .setAutocomplete(true)
         )
@@ -165,8 +261,8 @@ export const tournamentCommand = {
         .setDescription('[Creator Only] End the tournament and announce final standings')
         .addStringOption(option =>
           option
-            .setName('league')
-            .setDescription('Select the league')
+            .setName('tournament')
+            .setDescription('Select the tournament')
             .setRequired(true)
             .setAutocomplete(true)
         )
@@ -174,11 +270,11 @@ export const tournamentCommand = {
     .addSubcommand(subcommand =>
       subcommand
         .setName('bracket')
-        .setDescription('View Top Cut elimination bracket')
+        .setDescription('View elimination bracket or Top Cut bracket')
         .addStringOption(option =>
           option
-            .setName('league')
-            .setDescription('Select the league')
+            .setName('tournament')
+            .setDescription('Select the tournament')
             .setRequired(true)
             .setAutocomplete(true)
         )
@@ -188,8 +284,164 @@ export const tournamentCommand = {
     const subcommand = interaction.options.getSubcommand();
 
     try {
-      // Get league by name instead of ID
-      const leagueName = interaction.options.getString('league', true);
+      // Handle commands that don't need a specific tournament
+      if (subcommand === 'create') {
+        const name = interaction.options.getString('name', true);
+        const format = interaction.options.getString('format', true);
+        const type = interaction.options.getString('type', true) as CompetitionType;
+        const rounds = interaction.options.getInteger('rounds') || undefined;
+        const timer = interaction.options.getInteger('timer') || undefined;
+
+        try {
+          const league = await leagueService.createLeague({
+            guildId: interaction.guildId!,
+            createdBy: interaction.user.id,
+            name,
+            format,
+            competitionType: type,
+            totalRounds: rounds,
+            roundTimerMinutes: timer,
+          });
+
+          const embed = new EmbedBuilder()
+            .setColor(0x00ff00)
+            .setTitle('🎯 Tournament Created!')
+            .addFields(
+              { name: 'Name', value: league.name, inline: true },
+              { name: 'Format', value: league.format, inline: true },
+              { name: 'Type', value: league.competitionType, inline: true },
+              { name: 'Status', value: league.status, inline: true }
+            )
+            .setDescription('Players can now register with `/register`')
+            .setTimestamp();
+
+          await interaction.reply({ embeds: [embed] });
+        } catch (error: any) {
+          if (error.code === 'P2002' || error.message?.includes('Unique constraint')) {
+            await interaction.reply({
+              content: `A tournament named "${name}" already exists in this server. Please choose a different name.`,
+              flags: 64
+            });
+          } else {
+            throw error;
+          }
+        }
+        return;
+      }
+
+      if (subcommand === 'list') {
+        const leagues = await leagueService.getActiveLeagues(interaction.guildId!);
+
+        if (leagues.length === 0) {
+          await interaction.reply('No active tournaments found.');
+          return;
+        }
+
+        const embed = new EmbedBuilder()
+          .setColor(0x0099ff)
+          .setTitle('🏆 Active Tournaments')
+          .setTimestamp();
+
+        leagues.forEach(league => {
+          embed.addFields({
+            name: `${league.name}`,
+            value: `Format: ${league.format} | Type: ${league.competitionType} | Status: ${league.status}`,
+          });
+        });
+
+        await interaction.reply({ embeds: [embed] });
+        return;
+      }
+
+      if (subcommand === 'help') {
+        const embed = new EmbedBuilder()
+          .setColor(0x5865f2)
+          .setTitle('📚 Tournament System Guide')
+          .setDescription('Quick reference for running Star Wars Unlimited tournaments')
+          .addFields(
+            {
+              name: '🎮 Quick Start',
+              value: '`/tournament create` → `/register` → `/tournament start` → Report results → Auto-advance!',
+              inline: false
+            },
+            {
+              name: '📋 Tournament Setup',
+              value: '`/tournament create` - New tournament\n' +
+                '`/tournament list` - View tournaments\n' +
+                '`/tournament cancel` - Cancel [Creator]\n' +
+                '`/tournament delete` - Permanently delete [Creator]\n' +
+                '`/tournament auditlog` - View changes [Creator]',
+              inline: false
+            },
+            {
+              name: '👥 Registration',
+              value: '`/register` - Join tournament\n' +
+                '`/manualregister` - Register a user [Creator]',
+              inline: false
+            },
+            {
+              name: '🎯 During Tournament',
+              value: '`/tournament start` - Begin [Creator]\n' +
+                '`/tournament pairings` - View matches\n' +
+                '`/tournament report` - Report results\n' +
+                '`/tournament nextround` - Advance Swiss [Creator]\n' +
+                '`/tournament bracket` - View bracket\n' +
+                '`/tournament drop` - Drop out',
+              inline: false
+            },
+            {
+              name: '📊 Info & Stats',
+              value: '`/standings` - Current rankings\n' +
+                '`/stats player` - Player history\n' +
+                '`/stats leaderboard` - Server rankings\n' +
+                '`/history list` - Past tournaments',
+              inline: false
+            },
+            {
+              name: '🔧 Admin Tools [Creator]',
+              value: '`/tournament findmatch` - Search matches\n' +
+                '`/tournament modifymatch` - Fix results\n' +
+                '`/tournament repairround` - Reset round\n' +
+                '`/tournament end` - Manual end',
+              inline: false
+            },
+            {
+              name: '⚡ Auto Features',
+              value: '• Swiss auto-ends after final round\n' +
+                '• Elimination/Top Cut auto-advance\n' +
+                '• Round timers with announcements\n' +
+                '• Final standings on completion\n' +
+                '• Automatic bye assignment',
+              inline: false
+            },
+            {
+              name: '🏁 Tournament Types',
+              value: '**Swiss**: Round-robin style, play all rounds\n' +
+                '**Swiss + Top Cut**: Swiss → Top 8/4/2\n' +
+                '**Single Elimination**: Win or go home\n' +
+                '**Double Elimination**: Two losses to eliminate',
+              inline: false
+            }
+          )
+          .setFooter({ text: 'For detailed help, visit the bot documentation' })
+          .setTimestamp();
+
+        // Defer reply immediately to prevent timeout
+        await interaction.deferReply({ flags: 64 });
+
+        try {
+          await interaction.user.send({ embeds: [embed] });
+          await interaction.editReply({ content: 'I\'ve sent you a DM with the tournament guide!' });
+        } catch (dmError) {
+          // If DM fails (user has DMs disabled), fall back to showing embed in channel
+          await interaction.editReply({ embeds: [embed] });
+        }
+        return;
+      }
+
+      // All other commands need a tournament name
+      // Get tournament by name instead of ID
+      const tournamentName = interaction.options.getString('tournament', true);
       const guildId = interaction.guildId;
       
       if (!guildId) {
@@ -197,16 +449,79 @@ export const tournamentCommand = {
         return;
       }
 
-      const league = await leagueService.getLeagueByName(guildId, leagueName);
+      const league = await leagueService.getLeagueByName(guildId, tournamentName);
       
       if (!league) {
-        await interaction.reply({ content: `League "${leagueName}" not found.`, flags: 64 });
+        await interaction.reply({ content: `Tournament "${tournamentName}" not found.`, flags: 64 });
         return;
       }
 
       const leagueId = league.id;
 
-      if (subcommand === 'start') {
+      // Handle tournament-specific commands
+      if (subcommand === 'cancel') {
+        // Check if the user is the tournament creator
+        if (league.createdBy !== interaction.user.id) {
+          await interaction.reply({ 
+            content: 'Only the tournament creator can cancel the tournament.', 
+            flags: 64 
+          });
+          return;
+        }
+
+        await leagueService.cancelLeague(league.id);
+        await interaction.reply(`Tournament "${league.name}" has been cancelled.`);
+      } else if (subcommand === 'delete') {
+        // Check if the user is the tournament creator
+        if (league.createdBy !== interaction.user.id) {
+          await interaction.reply({ 
+            content: 'Only the tournament creator can delete the tournament.', 
+            flags: 64 
+          });
+          return;
+        }
+
+        await leagueService.deleteLeague(league.id);
+        await interaction.reply(`Tournament "${league.name}" and all its data have been permanently deleted. Audit logs have been preserved.`);
+      } else if (subcommand === 'auditlog') {
+        const limit = interaction.options.getInteger('limit') || 10;
+
+        // Check if the user is the tournament creator
+        if (league.createdBy !== interaction.user.id) {
+          await interaction.reply({ 
+            content: 'Only the tournament creator can view the audit log.', 
+            flags: 64 
+          });
+          return;
+        }
+
+        const logs = await leagueService.getAuditLogs(league.id, limit);
+
+        if (logs.length === 0) {
+          await interaction.reply({ 
+            content: 'No audit log entries found for this tournament.', 
+            flags: 64 
+          });
+          return;
+        }
+
+        const embed = new EmbedBuilder()
+          .setColor(0xff9900)
+          .setTitle(`${league.name} - Audit Log`)
+          .setDescription(`Showing ${logs.length} most recent changes`)
+          .setTimestamp();
+
+        logs.forEach(log => {
+          const timestamp = new Date(log.createdAt).toLocaleString();
+          embed.addFields({
+            name: `${log.action} - ${timestamp}`,
+            value: `**User:** ${log.username}\n**Description:** ${log.description}`,
+            inline: false,
+          });
+        });
+
+        await interaction.reply({ embeds: [embed], flags: 64 });
+      } else if (subcommand === 'start') {
         // Check if the user is the league creator
         if (league.createdBy !== interaction.user.id) {
           await interaction.reply({ 
@@ -595,17 +910,20 @@ export const tournamentCommand = {
 
         await interaction.reply({ embeds: [embed] });
       } else if (subcommand === 'bracket') {
-        // Check if league has Top Cut
-        if (!league.hasTopCut) {
+        // Check if this is an elimination tournament or has Top Cut
+        const isElimination = league.competitionType === 'SINGLE_ELIMINATION' || 
+                              league.competitionType === 'DOUBLE_ELIMINATION';
+        
+        if (!isElimination && !league.hasTopCut) {
           await interaction.reply({
-            content: 'This tournament does not have a Top Cut bracket.',
+            content: 'This tournament does not have a bracket. Only elimination tournaments and Swiss with Top Cut have brackets.',
             flags: 64
           });
           return;
         }
 
-        // Check if Top Cut has started
-        if (league.status !== 'TOP_CUT' && league.status !== 'COMPLETED') {
+        // For Swiss with Top Cut, check if Top Cut has started
+        if (!isElimination && league.status !== 'TOP_CUT' && league.status !== 'COMPLETED') {
           await interaction.reply({
             content: 'The Top Cut bracket has not started yet. It will begin automatically after the Swiss rounds are complete.',
             flags: 64
@@ -613,26 +931,23 @@ export const tournamentCommand = {
           return;
         }
 
-        // Validate Top Cut size
-        if (!league.topCutSize || ![2, 4, 8].includes(league.topCutSize)) {
-          await interaction.reply({
-            content: 'Invalid Top Cut size. Must be 2, 4, or 8.',
-            flags: 64
-          });
-          return;
-        }
-
-        const totalRounds = league.totalRounds || 0;
-
         // Get all matches for the league
         const allMatches = await matchRepository.findByLeague(leagueId);
         
-        // Filter to Top Cut matches only (rounds after Swiss)
-        const topCutMatches = allMatches.filter((m: any) => m.roundNumber > totalRounds);
+        let matchesToShow: any[];
         
-        if (topCutMatches.length === 0) {
+        if (isElimination) {
+          // For elimination tournaments, show all matches
+          matchesToShow = allMatches;
+        } else {
+          // For Swiss with Top Cut, filter to Top Cut matches only
+          const totalRounds = league.totalRounds || 0;
+          matchesToShow = allMatches.filter((m: any) => m.roundNumber > totalRounds);
+        }
+        
+        if (matchesToShow.length === 0) {
           await interaction.reply({
-            content: 'No Top Cut matches have been created yet.',
+            content: 'No bracket matches have been created yet.',
             flags: 64
           });
           return;
@@ -654,7 +969,7 @@ export const tournamentCommand = {
           matchNumber: number;
         }
 
-        const bracketMatches: BracketMatch[] = topCutMatches.map((match: any, index: number) => {
+        const bracketMatches: BracketMatch[] = matchesToShow.map((match: any, index: number) => {
           const player1Name = playerMap.get(match.player1Id) || 'Unknown Player';
           const player2Name = playerMap.get(match.player2Id) || 'Unknown Player';
           
@@ -663,33 +978,83 @@ export const tournamentCommand = {
             winner = match.winnerId === match.player1Id ? player1Name : player2Name;
           }
 
-          // Calculate relative round number (1, 2, 3) for Top Cut
-          const relativeRound = match.roundNumber - totalRounds;
+          // Calculate round number
+          let relativeRound: number;
+          if (isElimination) {
+            relativeRound = match.roundNumber;
+          } else {
+            // For Top Cut, calculate relative to Swiss rounds
+            const totalRounds = league.totalRounds || 0;
+            relativeRound = match.roundNumber - totalRounds;
+          }
 
           return {
             player1: player1Name,
             player2: player2Name,
             winner,
-            isComplete: match.player1Wins !== null && match.player2Wins !== null,
+            isComplete: match.isCompleted,
             roundNumber: relativeRound,
-            matchNumber: match.tableNumber,
+            matchNumber: match.tableNumber || index + 1,
           };
         });
 
-        // Generate bracket based on Top Cut size
+        // Generate bracket based on tournament type
         let bracketString: string;
         
-        if (league.topCutSize === 8) {
-          bracketString = generateTop8Bracket(bracketMatches);
-        } else if (league.topCutSize === 4) {
-          bracketString = generateTop4Bracket(bracketMatches);
+        if (league.competitionType === 'DOUBLE_ELIMINATION') {
+          // Separate winners and losers brackets
+          const winnersMatches = bracketMatches.filter((_, idx) => 
+            !matchesToShow[idx].isLosersBracket && !matchesToShow[idx].isGrandFinals
+          );
+          const losersMatches = bracketMatches.filter((_, idx) => 
+            matchesToShow[idx].isLosersBracket
+          );
+          const grandFinalsMatches = bracketMatches.filter((_, idx) => 
+            matchesToShow[idx].isGrandFinals
+          );
+          
+          const { generateDoubleEliminationBracket } = await import('../utils/bracketVisualizer');
+          bracketString = generateDoubleEliminationBracket(winnersMatches, losersMatches, grandFinalsMatches);
+        } else if (league.competitionType === 'SINGLE_ELIMINATION') {
+          // Use existing bracket visualizer based on number of initial players
+          const numPlayers = registrations.length;
+          if (numPlayers === 8) {
+            bracketString = generateTop8Bracket(bracketMatches);
+          } else if (numPlayers === 4) {
+            bracketString = generateTop4Bracket(bracketMatches);
+          } else if (numPlayers === 2) {
+            bracketString = generateTop2Bracket(bracketMatches);
+          } else {
+            // For other sizes, use summary view
+            const { generateBracketSummary } = await import('../utils/bracketVisualizer');
+            bracketString = generateBracketSummary(bracketMatches, false);
+          }
         } else {
-          bracketString = generateTop2Bracket(bracketMatches);
+          // Swiss with Top Cut
+          if (!league.topCutSize || ![2, 4, 8].includes(league.topCutSize)) {
+            await interaction.reply({
+              content: 'Invalid Top Cut size. Must be 2, 4, or 8.',
+              flags: 64
+            });
+            return;
+          }
+          
+          if (league.topCutSize === 8) {
+            bracketString = generateTop8Bracket(bracketMatches);
+          } else if (league.topCutSize === 4) {
+            bracketString = generateTop4Bracket(bracketMatches);
+          } else {
+            bracketString = generateTop2Bracket(bracketMatches);
+          }
         }
 
         // Send the bracket
+        const title = isElimination 
+          ? `${league.name} - ${league.competitionType === 'DOUBLE_ELIMINATION' ? 'Double' : 'Single'} Elimination Bracket`
+          : `${league.name} - Top ${league.topCutSize} Bracket`;
+          
         await interaction.reply({
-          content: `**${league.name} - Top ${league.topCutSize} Bracket**\n${bracketString}`,
+          content: `**${title}**\n${bracketString}`,
         });
       }
     } catch (error) {
@@ -706,7 +1071,7 @@ export const tournamentCommand = {
       const focusedOption = interaction.options.getFocused(true);
       const subcommand = interaction.options.getSubcommand();
       
-      if (focusedOption.name === 'league') {
+      if (focusedOption.name === 'tournament') {
         const guildId = interaction.guildId;
         if (!guildId) {
           await interaction.respond([]);
@@ -716,19 +1081,24 @@ export const tournamentCommand = {
         // Get all leagues for this guild
         const leagues = await leagueService.getLeaguesByGuild(guildId);
         
-        // For bracket command, allow completed leagues with Top Cut
-        // For other commands, exclude completed and cancelled leagues
+        // Filter based on subcommand
         const filtered = leagues
           .filter(league => {
             const matchesSearch = league.name.toLowerCase().includes(focusedOption.value.toLowerCase());
             
-            if (subcommand === 'bracket') {
-              // Allow TOP_CUT and COMPLETED leagues that have Top Cut
-              return matchesSearch && 
-                     league.hasTopCut && 
-                     (league.status === 'TOP_CUT' || league.status === 'COMPLETED');
+            if (subcommand === 'delete') {
+              // For delete, show all tournaments (including COMPLETED and CANCELLED)
+              return matchesSearch;
+            } else if (subcommand === 'bracket') {
+              // Allow elimination tournaments or leagues with Top Cut
+              const isElimination = league.competitionType === 'SINGLE_ELIMINATION' || 
+                                    league.competitionType === 'DOUBLE_ELIMINATION';
+              const hasTopCut = league.hasTopCut && 
+                               (league.status === 'TOP_CUT' || league.status === 'COMPLETED');
+              
+              return matchesSearch && (isElimination || hasTopCut);
             } else {
-              // For other commands, exclude COMPLETED and CANCELLED leagues
+              // For other commands, exclude COMPLETED and CANCELLED
               return matchesSearch && 
                      league.status !== 'COMPLETED' && 
                      league.status !== 'CANCELLED';
@@ -743,9 +1113,9 @@ export const tournamentCommand = {
           }))
         );
       } else if (focusedOption.name === 'match' && subcommand === 'modifymatch') {
-        // Get the selected league
-        const leagueName = interaction.options.getString('league');
-        if (!leagueName) {
+        // Get the selected tournament
+        const tournamentName = interaction.options.getString('tournament');
+        if (!tournamentName) {
           await interaction.respond([]);
           return;
         }
@@ -753,7 +1123,7 @@ export const tournamentCommand = {
         // Find the league
         const guildId = interaction.guildId;
         const leagues = await leagueService.getLeaguesByGuild(guildId);
-        const league = leagues.find(l => l.name === leagueName);
+        const league = leagues.find(l => l.name === tournamentName);
         
         if (!league) {
           await interaction.respond([]);

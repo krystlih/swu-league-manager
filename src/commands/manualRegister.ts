@@ -6,11 +6,11 @@ const leagueService = LeagueService.getInstance();
 export const manualRegisterCommand = {
   data: new SlashCommandBuilder()
     .setName('manualregister')
-    .setDescription('[Creator Only] Manually register a user for a league')
+    .setDescription('[Creator Only] Manually register a user for a tournament')
     .addStringOption(option =>
       option
-        .setName('league')
-        .setDescription('Select the league')
+        .setName('tournament')
+        .setDescription('Select the tournament')
         .setRequired(true)
         .setAutocomplete(true)
     )
@@ -22,7 +22,7 @@ export const manualRegisterCommand = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction) {
-    const leagueName = interaction.options.getString('league', true);
+    const tournamentName = interaction.options.getString('tournament', true);
     const user = interaction.options.getUser('user', true);
     const guildId = interaction.guildId;
 
@@ -32,17 +32,17 @@ export const manualRegisterCommand = {
     }
 
     try {
-      const league = await leagueService.getLeagueByName(guildId, leagueName);
+      const league = await leagueService.getLeagueByName(guildId, tournamentName);
       
       if (!league) {
-        await interaction.reply({ content: `League "${leagueName}" not found.`, flags: 64 });
+        await interaction.reply({ content: `Tournament "${tournamentName}" not found.`, flags: 64 });
         return;
       }
 
-      // Check if the user is the league creator
+      // Check if the user is the tournament creator
       if (league.createdBy !== interaction.user.id) {
         await interaction.reply({ 
-          content: 'Only the league creator can manually register users.', 
+          content: 'Only the tournament creator can manually register users.', 
           flags: 64 
         });
         return;

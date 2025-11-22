@@ -6,6 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateTop8Bracket = generateTop8Bracket;
 exports.generateTop4Bracket = generateTop4Bracket;
 exports.generateTop2Bracket = generateTop2Bracket;
+exports.generateDoubleEliminationBracket = generateDoubleEliminationBracket;
+exports.generateBracketSummary = generateBracketSummary;
 /**
  * Generate Top 8 bracket visualization
  */
@@ -181,4 +183,112 @@ function addMatchStatus(matches) {
         status += '\n🏆 Tournament Complete!\n';
     }
     return status;
+}
+/**
+ * Generate double elimination bracket visualization
+ * Shows both winners and losers brackets side by side
+ */
+function generateDoubleEliminationBracket(winnersMatches, losersMatches, grandFinalsMatches = []) {
+    let bracket = '```\n';
+    bracket += '═══════════════════════════════════════════════════════════════════\n';
+    bracket += '              DOUBLE ELIMINATION BRACKET\n';
+    bracket += '═══════════════════════════════════════════════════════════════════\n\n';
+    // Winners Bracket
+    bracket += '╔═══════════════════ WINNERS BRACKET ════════════════════╗\n';
+    const winnersRounds = organizeMatchesByRound(winnersMatches);
+    for (let r = 0; r < winnersRounds.length; r++) {
+        const round = winnersRounds[r];
+        bracket += `\n--- Round ${r + 1} (WB) ---\n`;
+        for (const match of round) {
+            const p1Win = match.winner === match.player1;
+            const p2Win = match.winner === match.player2;
+            const status = match.isComplete ? '✓' : ' ';
+            bracket += `[${status}] ${formatShortName(match.player1, 14)} ${p1Win ? '►' : ' '}\n`;
+            bracket += `    vs\n`;
+            bracket += `    ${formatShortName(match.player2, 14)} ${p2Win ? '►' : ' '}\n`;
+            if (match.winner && !match.isComplete) {
+                bracket += `    Loser → Losers Bracket\n`;
+            }
+            bracket += '\n';
+        }
+    }
+    bracket += '╚════════════════════════════════════════════════════════╝\n';
+    // Losers Bracket
+    if (losersMatches.length > 0) {
+        bracket += '\n╔═══════════════════ LOSERS BRACKET ════════════════════╗\n';
+        const losersRounds = organizeMatchesByRound(losersMatches);
+        for (let r = 0; r < losersRounds.length; r++) {
+            const round = losersRounds[r];
+            bracket += `\n--- Round ${r + 1} (LB) ---\n`;
+            for (const match of round) {
+                const p1Win = match.winner === match.player1;
+                const p2Win = match.winner === match.player2;
+                const status = match.isComplete ? '✓' : ' ';
+                bracket += `[${status}] ${formatShortName(match.player1, 14)} ${p1Win ? '►' : ' '}\n`;
+                bracket += `    vs\n`;
+                bracket += `    ${formatShortName(match.player2, 14)} ${p2Win ? '►' : ' '}\n`;
+                if (match.winner && match.isComplete && r === losersRounds.length - 1) {
+                    bracket += `    → Grand Finals\n`;
+                }
+                bracket += '\n';
+            }
+        }
+        bracket += '╚════════════════════════════════════════════════════════╝\n';
+    }
+    // Grand Finals
+    if (grandFinalsMatches.length > 0) {
+        bracket += '\n╔═══════════════════ GRAND FINALS ══════════════════════╗\n';
+        for (const match of grandFinalsMatches) {
+            const p1Win = match.winner === match.player1;
+            const p2Win = match.winner === match.player2;
+            const status = match.isComplete ? '✓' : ' ';
+            const resetIndicator = grandFinalsMatches.length > 1 ? ' (Bracket Reset)' : '';
+            bracket += `\n[${status}] ${formatShortName(match.player1, 14)} ${p1Win ? '►' : ' '} (Winners)\n`;
+            bracket += `    vs\n`;
+            bracket += `    ${formatShortName(match.player2, 14)} ${p2Win ? '►' : ' '} (Losers)\n`;
+            bracket += resetIndicator + '\n';
+            if (match.isComplete && match.winner) {
+                bracket += `\n    🏆 CHAMPION: ${match.winner}\n`;
+            }
+        }
+        bracket += '\n╚════════════════════════════════════════════════════════╝\n';
+    }
+    // Status summary
+    bracket += '\n';
+    const allMatches = [...winnersMatches, ...losersMatches, ...grandFinalsMatches];
+    bracket += addMatchStatus(allMatches);
+    bracket += '```';
+    return bracket;
+}
+/**
+ * Generate compact bracket summary for any elimination format
+ * Shows current status and next matches
+ */
+function generateBracketSummary(matches, isDoubleElimination = false) {
+    const rounds = organizeMatchesByRound(matches);
+    const currentRound = rounds.find(r => r.some(m => !m.isComplete)) || rounds[rounds.length - 1];
+    let summary = '```\n';
+    summary += `📊 Bracket Status (${isDoubleElimination ? 'Double' : 'Single'} Elimination)\n`;
+    summary += '─────────────────────────────────────────\n\n';
+    // Current matches
+    if (currentRound) {
+        const roundIndex = rounds.indexOf(currentRound);
+        summary += `Current Round: ${roundIndex + 1}\n\n`;
+        for (const match of currentRound) {
+            if (!match.isComplete) {
+                summary += `Table ${match.matchNumber}: ${match.player1} vs ${match.player2}\n`;
+            }
+            else if (match.winner) {
+                summary += `Table ${match.matchNumber}: ${match.winner} (Winner) ✓\n`;
+            }
+        }
+    }
+    // Overall progress
+    const completed = matches.filter(m => m.isComplete).length;
+    const total = matches.length;
+    const remaining = total - completed;
+    summary += `\n─────────────────────────────────────────\n`;
+    summary += `Progress: ${completed}/${total} matches (${remaining} remaining)\n`;
+    summary += '```';
+    return summary;
 }

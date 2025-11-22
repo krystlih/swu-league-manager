@@ -6,6 +6,7 @@ import { MatchRepository } from '../data/repositories/matchRepository';
 import { AuditLogRepository } from '../data/repositories/auditLogRepository';
 import { TournamentService } from './tournamentService';
 import { RoundTimerService } from './roundTimerService';
+import { EliminationService, EliminationPlayer } from './eliminationService';
 import { Client, EmbedBuilder, TextChannel } from 'discord.js';
 import {
   League,
@@ -14,6 +15,7 @@ import {
   StandingsEntry,
   MatchResult,
   Pairing,
+  CompetitionType,
 } from '../types';
 
 export class LeagueService {
@@ -145,23 +147,48 @@ export class LeagueService {
     let totalRounds = league.totalRounds || 0;
     let topCutSize = 0;
 
-    if (league.competitionType === 'SWISS' || league.competitionType === 'SWISS_WITH_TOP_CUT') {
+    if (league.competitionType === CompetitionType.SWISS || league.competitionType === CompetitionType.SWISS_WITH_TOP_CUT) {
       // Use provided totalRounds if available, otherwise calculate based on player count
       if (!totalRounds) {
         totalRounds = this.calculateSwissRounds(registrations.length);
       }
       
-      if (league.competitionType === 'SWISS_WITH_TOP_CUT') {
+      if (league.competitionType === CompetitionType.SWISS_WITH_TOP_CUT) {
         topCutSize = league.topCutSize || this.calculateTopCutSize(registrations.length);
       }
+    } else if (league.competitionType === CompetitionType.SINGLE_ELIMINATION) {
+      // Validate power of 2 for single elimination
+      if (!this.isPowerOfTwo(registrations.length)) {
+        const next = EliminationService.getNextPowerOfTwo(registrations.length);
+        const prev = EliminationService.getPreviousPowerOfTwo(registrations.length);
+        throw new Error(
+          `Single elimination requires a power of 2 players. You have ${registrations.length} players. ` +
+          `Please register ${prev} or ${next} players.`
+        );
+      }
+      totalRounds = EliminationService.calculateSingleEliminationRounds(registrations.length);
+    } else if (league.competitionType === CompetitionType.DOUBLE_ELIMINATION) {
+      // Validate power of 2 for double elimination
+      if (!this.isPowerOfTwo(registrations.length)) {
+        const next = EliminationService.getNextPowerOfTwo(registrations.length);
+        const prev = EliminationService.getPreviousPowerOfTwo(registrations.length);
+        throw new Error(
+          `Double elimination requires a power of 2 players. You have ${registrations.length} players. ` +
+          `Please register ${prev} or ${next} players.`
+        );
+      }
+      const rounds = EliminationService.calculateDoubleEliminationRounds(registrations.length);
+      totalRounds = rounds.total;
     }
 
-    // Create tournament
-    const players = registrations.map(reg => ({
-      id: reg.playerId,
-      name: reg.player?.username || 'Unknown',
-    }));
-    await this.tournamentService.createTournament(leagueId, players);
+    // Create tournament (for Swiss tournaments only - elimination uses different logic)
+    if (league.competitionType === CompetitionType.SWISS || league.competitionType === CompetitionType.SWISS_WITH_TOP_CUT) {
+      const players = registrations.map(reg => ({
+        id: reg.playerId,
+        name: reg.player?.username || 'Unknown',
+      }));
+      await this.tournamentService.createTournament(leagueId, players);
+    }
 
     // Update league with calculated values (only if they weren't already set)
     await this.leagueRepo.update(leagueId, {
@@ -196,10 +223,18 @@ export class LeagueService {
       throw new Error('League not found');
     }
 
-    if (league.status !== LeagueStatus.IN_PROGRESS) {
+    if (league.status !== LeagueStatus.IN_PROGRESS && league.status !== LeagueStatus.TOP_CUT) {
       throw new Error('League is not in progress');
     }
 
+    // For elimination tournaments, use different logic
+    if (league.competitionType === CompetitionType.SINGLE_ELIMINATION) {
+      return this.generateSingleEliminationRound(leagueId, league);
+    } else if (league.competitionType === CompetitionType.DOUBLE_ELIMINATION) {
+      return this.generateDoubleEliminationRound(leagueId, league);
+    }
+
+    // Swiss tournament logic (existing code)
     // Check if tournament exists in memory, if not rebuild from database
     const existingTournament = this.tournamentService.getTournament(leagueId);
     if (!existingTournament) {
@@ -225,7 +260,7 @@ export class LeagueService {
     const nextRoundNumber = league.currentRound + 1;
     if (league.totalRounds && nextRoundNumber > league.totalRounds) {
       // Swiss rounds are complete, check if we need Top Cut
-      if (league.competitionType === 'SWISS_WITH_TOP_CUT' && !league.hasTopCut) {
+      if (league.competitionType === CompetitionType.SWISS_WITH_TOP_CUT && !league.hasTopCut) {
         // Start top cut automatically
         await this.startTopCut(leagueId);
         // Give Discord a moment to send the message
@@ -400,7 +435,48 @@ export class LeagueService {
     // Round is complete - cancel any active timer for this round
     this.timerService.cancelRoundTimer(leagueId, league.currentRound);
 
-    // Round is complete - determine next action
+    // Handle elimination tournaments differently
+    if (league.competitionType === CompetitionType.SINGLE_ELIMINATION || 
+        league.competitionType === CompetitionType.DOUBLE_ELIMINATION) {
+      // Auto-advance to next round for elimination tournaments
+      try {
+        await this.generateNextRound(leagueId);
+        
+        // Notify via announcement channel if configured
+        if (league.announcementChannelId && this.client) {
+          try {
+            const channel = await this.client.channels.fetch(league.announcementChannelId) as TextChannel;
+            if (channel) {
+              const roundName = league.competitionType === CompetitionType.SINGLE_ELIMINATION
+                ? EliminationService.getSingleEliminationRoundName(league.currentRound, league.totalRounds || 0)
+                : 'Next Round';
+              
+              await channel.send(`⚡ **${league.name}** - ${roundName} pairings are ready! Use \`/tournament pairings\` to view them.`);
+            }
+          } catch (channelError: any) {
+            // Handle missing access
+            if (channelError?.code === 50001) {
+              console.log(`[AUTO-ADVANCE] Missing access to announcement channel for league ${leagueId}, clearing channel ID`);
+              await this.leagueRepo.update(leagueId, {
+                announcementChannelId: null,
+              });
+            } else {
+              console.error('[AUTO-ADVANCE] Error sending announcement:', channelError);
+            }
+          }
+        }
+      } catch (error: any) {
+        // Tournament complete or error occurred
+        if (error.message?.includes('Tournament complete')) {
+          console.log(`[AUTO-ADVANCE] Tournament ${leagueId} completed automatically`);
+        } else {
+          console.error('[AUTO-ADVANCE] Error generating next round:', error);
+        }
+      }
+      return;
+    }
+
+    // Round is complete - determine next action for Swiss tournaments
     if (league.status === LeagueStatus.TOP_CUT) {
       // We're in top cut - check if it's the finals
       const winners = matches.filter(m => m.winnerId).map(m => m.winnerId);
@@ -415,7 +491,7 @@ export class LeagueService {
     } else {
       // We're in Swiss rounds
       const isSwissComplete = league.totalRounds && league.currentRound >= league.totalRounds;
-      const needsTopCut = league.competitionType === 'SWISS_WITH_TOP_CUT' && 
+      const needsTopCut = league.competitionType === CompetitionType.SWISS_WITH_TOP_CUT && 
                           league.hasTopCut === false && 
                           isSwissComplete;
 
@@ -826,6 +902,307 @@ export class LeagueService {
     await this.leagueRepo.delete(leagueId);
     
     // Note: Audit logs are preserved and not deleted
+  }
+
+  /**
+   * Generate next round for single elimination tournament
+   */
+  private async generateSingleEliminationRound(leagueId: number, league: League): Promise<Pairing[]> {
+    const nextRoundNumber = league.currentRound + 1;
+
+    // Check if current round is complete (if not first round)
+    if (league.currentRound > 0) {
+      const currentRound = await this.roundRepo.findByLeagueAndRound(leagueId, league.currentRound);
+      if (currentRound) {
+        const matches = await this.matchRepo.findByRound(currentRound.id);
+        const allComplete = matches.every(m => m.isCompleted);
+        if (!allComplete) {
+          throw new Error('Current round is not complete');
+        }
+      }
+    }
+
+    let pairings: Pairing[];
+
+    if (league.currentRound === 0) {
+      // First round - generate initial bracket
+      const registrations = await this.registrationRepo.findByLeague(leagueId);
+      const players: EliminationPlayer[] = registrations.map((reg, index) => ({
+        id: reg.playerId,
+        name: reg.player?.username || 'Unknown',
+        seed: index + 1,
+      }));
+
+      pairings = EliminationService.generateSingleEliminationBracket(players);
+    } else {
+      // Subsequent rounds - advance winners
+      const currentRound = await this.roundRepo.findByLeagueAndRound(leagueId, league.currentRound);
+      if (!currentRound) {
+        throw new Error('Current round not found');
+      }
+
+      const matches = await this.matchRepo.findByRound(currentRound.id);
+      const completedMatches = matches
+        .filter(m => m.isCompleted && m.winnerId && m.player1 && m.player2)
+        .map(m => ({
+          winnerId: m.winnerId!,
+          winnerName: m.winnerId === m.player1Id ? m.player1!.username : m.player2!.username,
+          matchNumber: m.tableNumber || 0,
+        }));
+
+      if (completedMatches.length === 0) {
+        throw new Error('No completed matches found in current round');
+      }
+
+      pairings = EliminationService.generateNextSingleEliminationRound(completedMatches, league.currentRound);
+
+      // If no pairings returned, tournament is complete
+      if (pairings.length === 0) {
+        await this.autoEndTournament(leagueId);
+        throw new Error('Tournament complete!');
+      }
+    }
+
+    // Create round and matches
+    await this.createRoundAndMatches(leagueId, nextRoundNumber, pairings, false);
+
+    // Update league
+    await this.leagueRepo.update(leagueId, {
+      currentRound: nextRoundNumber,
+    });
+
+    return pairings;
+  }
+
+  /**
+   * Generate next round for double elimination tournament
+   */
+  private async generateDoubleEliminationRound(leagueId: number, league: League): Promise<Pairing[]> {
+    const nextRoundNumber = league.currentRound + 1;
+
+    // Check if current round is complete (if not first round)
+    if (league.currentRound > 0) {
+      const currentRound = await this.roundRepo.findByLeagueAndRound(leagueId, league.currentRound);
+      if (currentRound) {
+        const matches = await this.matchRepo.findByRound(currentRound.id);
+        const allComplete = matches.every(m => m.isCompleted);
+        if (!allComplete) {
+          throw new Error('Current round is not complete');
+        }
+      }
+    }
+
+    let pairings: Pairing[];
+
+    if (league.currentRound === 0) {
+      // First round - generate initial winners bracket
+      const registrations = await this.registrationRepo.findByLeague(leagueId);
+      const players: EliminationPlayer[] = registrations.map((reg, index) => ({
+        id: reg.playerId,
+        name: reg.player?.username || 'Unknown',
+        seed: index + 1,
+      }));
+
+      pairings = EliminationService.generateDoubleEliminationBracket(players);
+      await this.createRoundAndMatches(leagueId, nextRoundNumber, pairings, false);
+    } else {
+      // Get all previous matches to track winners and losers brackets
+      const allMatches = await this.matchRepo.findByLeague(leagueId);
+      const currentRoundMatches = allMatches.filter(
+        m => m.round?.roundNumber === league.currentRound && m.isCompleted
+      );
+
+      // Separate winners and losers bracket matches
+      const winnersMatches = currentRoundMatches
+        .filter(m => !m.isLosersBracket && m.winnerId && !m.isGrandFinals && m.player1 && m.player2)
+        .map(m => ({
+          winnerId: m.winnerId!,
+          winnerName: m.winnerId === m.player1Id ? m.player1!.username : m.player2!.username,
+          loserId: m.winnerId === m.player1Id ? m.player2Id! : m.player1Id,
+          loserName: m.winnerId === m.player1Id ? m.player2!.username : m.player1!.username,
+          matchNumber: m.tableNumber || 0,
+        }));
+
+      const losersMatches = currentRoundMatches
+        .filter(m => m.isLosersBracket && m.winnerId && m.player1 && m.player2)
+        .map(m => ({
+          winnerId: m.winnerId!,
+          winnerName: m.winnerId === m.player1Id ? m.player1!.username : m.player2!.username,
+          matchNumber: m.tableNumber || 0,
+        }));
+
+      // Check for grand finals
+      const grandFinalsMatch = currentRoundMatches.find(m => m.isGrandFinals);
+      
+      if (grandFinalsMatch && grandFinalsMatch.isCompleted) {
+        // Check if bracket reset is needed
+        const winnersChampion = allMatches
+          .filter(m => !m.isLosersBracket && !m.isGrandFinals)
+          .sort((a, b) => (b.round?.roundNumber || 0) - (a.round?.roundNumber || 0))[0];
+
+        const winnersChampionId = winnersChampion?.winnerId;
+
+        if (winnersChampionId && EliminationService.needsBracketReset(winnersChampionId, grandFinalsMatch.winnerId!)) {
+          // Losers bracket champion won - need bracket reset
+          if (!grandFinalsMatch.isBracketReset) {
+            // This was the first grand finals, create bracket reset match
+            if (!grandFinalsMatch.player1 || !grandFinalsMatch.player2) {
+              throw new Error('Cannot create bracket reset - missing player data');
+            }
+            
+            pairings = [{
+              tableNumber: 1,
+              player1Id: grandFinalsMatch.player1Id.toString(),
+              player1Name: grandFinalsMatch.player1.username,
+              player2Id: grandFinalsMatch.player2Id!.toString(),
+              player2Name: grandFinalsMatch.player2.username,
+              isBye: false,
+            }];
+
+            const round = await this.roundRepo.create(leagueId, nextRoundNumber);
+            for (const pairing of pairings) {
+              await this.matchRepo.create(
+                leagueId,
+                round.id,
+                parseInt(pairing.player1Id),
+                parseInt(pairing.player2Id!),
+                pairing.tableNumber,
+                false,
+                'GF-RESET',
+                false,
+                true,
+                true
+              );
+            }
+
+            await this.leagueRepo.update(leagueId, {
+              currentRound: nextRoundNumber,
+            });
+
+            return pairings;
+          } else {
+            // Bracket reset complete - tournament over
+            await this.autoEndTournament(leagueId);
+            throw new Error('Tournament complete!');
+          }
+        } else {
+          // Winners bracket champion won or won bracket reset - tournament over
+          await this.autoEndTournament(leagueId);
+          throw new Error('Tournament complete!');
+        }
+      }
+
+      // Generate next round pairings
+      const result = EliminationService.generateNextDoubleEliminationRound(
+        winnersMatches,
+        losersMatches,
+        league.currentRound
+      );
+
+      // Check if it's time for grand finals
+      if (result.grandFinals) {
+        // Get winners and losers bracket champions
+        const winnersChampion = winnersMatches.find(m => m.winnerId);
+        const losersChampion = losersMatches.find(m => m.winnerId);
+
+        if (winnersChampion && losersChampion) {
+          pairings = EliminationService.generateGrandFinals(
+            { id: winnersChampion.winnerId, name: winnersChampion.winnerName },
+            { id: losersChampion.winnerId, name: losersChampion.winnerName }
+          );
+
+          const round = await this.roundRepo.create(leagueId, nextRoundNumber);
+          for (const pairing of pairings) {
+            await this.matchRepo.create(
+              leagueId,
+              round.id,
+              parseInt(pairing.player1Id),
+              parseInt(pairing.player2Id!),
+              pairing.tableNumber,
+              false,
+              'GF',
+              false,
+              true,
+              false
+            );
+          }
+
+          await this.leagueRepo.update(leagueId, {
+            currentRound: nextRoundNumber,
+          });
+
+          return pairings;
+        } else {
+          throw new Error('Cannot determine grand finals participants');
+        }
+      }
+
+      // Create winners bracket matches
+      if (result.winnersBracketPairings.length > 0) {
+        await this.createRoundAndMatches(leagueId, nextRoundNumber, result.winnersBracketPairings, false);
+      }
+
+      // Create losers bracket matches
+      if (result.losersBracketPairings.length > 0) {
+        await this.createRoundAndMatches(leagueId, nextRoundNumber, result.losersBracketPairings, true);
+      }
+
+      pairings = [...result.winnersBracketPairings, ...result.losersBracketPairings];
+    }
+
+    // Update league
+    await this.leagueRepo.update(leagueId, {
+      currentRound: nextRoundNumber,
+    });
+
+    return pairings;
+  }
+
+  /**
+   * Helper method to create round and matches
+   */
+  private async createRoundAndMatches(
+    leagueId: number,
+    roundNumber: number,
+    pairings: Pairing[],
+    isLosersBracket: boolean
+  ): Promise<void> {
+    // Check if round already exists
+    let round = await this.roundRepo.findByLeagueAndRound(leagueId, roundNumber);
+    
+    if (!round) {
+      round = await this.roundRepo.create(leagueId, roundNumber);
+    }
+
+    for (let i = 0; i < pairings.length; i++) {
+      const pairing = pairings[i];
+      const player1DbId = parseInt(pairing.player1Id);
+      const player2DbId = pairing.player2Id ? parseInt(pairing.player2Id) : null;
+
+      const bracketPosition = isLosersBracket 
+        ? `LB-R${roundNumber}-M${i + 1}`
+        : `WB-R${roundNumber}-M${i + 1}`;
+
+      await this.matchRepo.create(
+        leagueId,
+        round.id,
+        player1DbId,
+        player2DbId,
+        i + 1,
+        pairing.isBye,
+        bracketPosition,
+        isLosersBracket,
+        false,
+        false
+      );
+    }
+  }
+
+  /**
+   * Check if number is a power of 2
+   */
+  private isPowerOfTwo(n: number): boolean {
+    return n > 0 && (n & (n - 1)) === 0;
   }
 
   async endTournament(leagueId: number, userId: string, username: string): Promise<void> {

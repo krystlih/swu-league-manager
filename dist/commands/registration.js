@@ -7,23 +7,23 @@ const leagueService = leagueService_1.LeagueService.getInstance();
 exports.registrationCommand = {
     data: new discord_js_1.SlashCommandBuilder()
         .setName('register')
-        .setDescription('Register for a league')
+        .setDescription('Register for a tournament')
         .addStringOption(option => option
-        .setName('league')
-        .setDescription('Select the league to register for')
+        .setName('tournament')
+        .setDescription('Select the tournament to register for')
         .setRequired(true)
         .setAutocomplete(true)),
     async execute(interaction) {
-        const leagueName = interaction.options.getString('league', true);
+        const tournamentName = interaction.options.getString('tournament', true);
         const guildId = interaction.guildId;
         if (!guildId) {
             await interaction.reply({ content: 'This command can only be used in a server.', flags: 64 });
             return;
         }
         try {
-            const league = await leagueService.getLeagueByName(guildId, leagueName);
+            const league = await leagueService.getLeagueByName(guildId, tournamentName);
             if (!league) {
-                await interaction.reply({ content: `League "${leagueName}" not found.`, flags: 64 });
+                await interaction.reply({ content: `Tournament "${tournamentName}" not found.`, flags: 64 });
                 return;
             }
             await leagueService.registerPlayer(league.id, interaction.user.id, interaction.user.username);
@@ -40,7 +40,7 @@ exports.registrationCommand = {
     async autocomplete(interaction) {
         try {
             const focusedOption = interaction.options.getFocused(true);
-            if (focusedOption.name === 'league') {
+            if (focusedOption.name === 'tournament') {
                 const guildId = interaction.guildId;
                 if (!guildId) {
                     await interaction.respond([]);
