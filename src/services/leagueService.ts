@@ -263,9 +263,8 @@ export class LeagueService {
       if (league.competitionType === CompetitionType.SWISS_WITH_TOP_CUT && !league.hasTopCut) {
         // Start top cut automatically
         await this.startTopCut(leagueId);
-        // Give Discord a moment to send the message
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        throw new Error('Swiss rounds complete. Top Cut has been started.');
+        // Return special error code to indicate top cut started successfully
+        throw new Error('TOP_CUT_STARTED');
       } else {
         // End tournament automatically
         await this.autoEndTournament(leagueId);
@@ -693,6 +692,11 @@ export class LeagueService {
       // playerId in StandingsEntry is the database ID (as string), not Discord ID
       const player1Id = parseInt(highSeed.playerId);
       const player2Id = parseInt(lowSeed.playerId);
+
+      if (isNaN(player1Id) || isNaN(player2Id)) {
+        console.error(`Invalid player IDs in top cut: player1=${highSeed.playerId}, player2=${lowSeed.playerId}`);
+        throw new Error(`Invalid player IDs for top cut pairing: ${highSeed.playerName} vs ${lowSeed.playerName}`);
+      }
 
       await this.matchRepo.create(
         leagueId,
