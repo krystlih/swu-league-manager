@@ -978,14 +978,15 @@ export const tournamentCommand = {
             winner = match.winnerId === match.player1Id ? player1Name : player2Name;
           }
 
-          // Calculate round number
+          // Calculate round number - get from round relationship
+          const actualRoundNumber = match.round?.roundNumber || match.roundNumber || 1;
           let relativeRound: number;
           if (isElimination) {
-            relativeRound = match.roundNumber;
+            relativeRound = actualRoundNumber;
           } else {
             // For Top Cut, calculate relative to Swiss rounds
             const totalRounds = league.totalRounds || 0;
-            relativeRound = match.roundNumber - totalRounds;
+            relativeRound = actualRoundNumber - totalRounds;
           }
 
           return {
