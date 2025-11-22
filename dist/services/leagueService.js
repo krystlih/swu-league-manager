@@ -592,12 +592,10 @@ class LeagueService {
         for (let i = 0; i < numMatches; i++) {
             const highSeed = players[i];
             const lowSeed = players[players.length - 1 - i];
-            // Get database player IDs
-            const player1 = await this.playerRepo.findByDiscordId(highSeed.playerId);
-            const player2 = await this.playerRepo.findByDiscordId(lowSeed.playerId);
-            if (player1 && player2) {
-                await this.matchRepo.create(leagueId, round.id, player1.id, player2.id, i + 1, false);
-            }
+            // playerId in StandingsEntry is the database ID (as string), not Discord ID
+            const player1Id = parseInt(highSeed.playerId);
+            const player2Id = parseInt(lowSeed.playerId);
+            await this.matchRepo.create(leagueId, round.id, player1Id, player2Id, i + 1, false);
         }
         // Update league current round
         await this.leagueRepo.update(leagueId, {
