@@ -130,16 +130,22 @@ export class EliminationService {
       grandFinals: false,
     };
 
+    // Check if we're ready for grand finals:
+    // - Winners bracket must be down to 1 player (winnersMatches.length === 1)
+    // - Losers bracket must be down to 1 player (losersMatches.length === 1)
+    if (winnersMatches.length === 1 && losersMatches.length === 1) {
+      result.grandFinals = true;
+      return result;
+    }
+
     // Generate winners bracket next round (same as single elimination)
     if (winnersMatches.length > 1) {
       result.winnersBracketPairings = this.generateNextSingleEliminationRound(
         winnersMatches.map(m => ({ winnerId: m.winnerId, winnerName: m.winnerName, matchNumber: m.matchNumber })),
         currentRoundNumber
       );
-    } else if (winnersMatches.length === 1) {
-      // Winners bracket finals complete - prepare for grand finals
-      result.grandFinals = true;
     }
+    // If winnersMatches.length === 1, winners bracket is complete - wait for losers bracket
 
     // Generate losers bracket pairings
     // Losers bracket alternates between:

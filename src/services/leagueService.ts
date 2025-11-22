@@ -1110,8 +1110,10 @@ export class LeagueService {
       // Check if it's time for grand finals
       if (result.grandFinals) {
         // Get winners and losers bracket champions
-        const winnersChampion = winnersMatches.find(m => m.winnerId);
-        const losersChampion = losersMatches.find(m => m.winnerId);
+        // Winners champion: the only winner from winners bracket matches
+        // Losers champion: the only winner from losers bracket matches
+        const winnersChampion = winnersMatches.length === 1 ? winnersMatches[0] : null;
+        const losersChampion = losersMatches.length === 1 ? losersMatches[0] : null;
 
         if (winnersChampion && losersChampion) {
           pairings = EliminationService.generateGrandFinals(
@@ -1141,7 +1143,7 @@ export class LeagueService {
 
           return pairings;
         } else {
-          throw new Error('Cannot determine grand finals participants');
+          throw new Error(`Cannot determine grand finals participants. Winners bracket has ${winnersMatches.length} winner(s), Losers bracket has ${losersMatches.length} winner(s). Both should have exactly 1.`);
         }
       }
 

@@ -778,7 +778,7 @@ exports.tournamentCommand = {
                 }
                 // Get all registrations to map player IDs to names
                 const registrations = await registrationRepository.findByLeague(leagueId);
-                const playerMap = new Map(registrations.map((r) => [r.playerId, r.playerName]));
+                const playerMap = new Map(registrations.map((r) => [r.playerId, r.player?.username || 'Unknown Player']));
                 const bracketMatches = matchesToShow.map((match, index) => {
                     const player1Name = playerMap.get(match.player1Id) || 'Unknown Player';
                     const player2Name = playerMap.get(match.player2Id) || 'Unknown Player';
