@@ -126,10 +126,10 @@ function organizeMatchesByRound(matches) {
         rounds[roundIndex].push(match);
     }
     // Sort matches within each round by match number
-    for (const round of rounds) {
-        round.sort((a, b) => a.matchNumber - b.matchNumber);
-    }
-    return rounds;
+    // Filter out any undefined entries (sparse arrays)
+    return rounds.filter(round => round !== undefined).map(round => {
+        return round.sort((a, b) => a.matchNumber - b.matchNumber);
+    });
 }
 /**
  * Format player name with winner indicator

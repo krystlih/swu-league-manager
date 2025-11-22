@@ -683,7 +683,183 @@ class LeagueService {
         }
     }
     async getStandings(leagueId) {
+        const league = await this.leagueRepo.findById(leagueId);
+        if (!league) {
+            throw new Error('League not found');
+        }
+        // For pure elimination tournaments, generate standings based on bracket progression
+        if (league.competitionType === types_1.CompetitionType.SINGLE_ELIMINATION ||
+            league.competitionType === types_1.CompetitionType.DOUBLE_ELIMINATION) {
+            return this.getEliminationStandings(leagueId, league);
+        }
+        // For Swiss with Top Cut, combine both methods
+        if (league.competitionType === types_1.CompetitionType.SWISS_WITH_TOP_CUT &&
+            (league.status === types_1.LeagueStatus.TOP_CUT || league.status === types_1.LeagueStatus.COMPLETED)) {
+            return this.getSwissTopCutStandings(leagueId, league);
+        }
+        // For Swiss tournaments, use match points and tiebreakers
         return this.registrationRepo.getStandings(leagueId);
+    }
+    /**
+     * Generate combined standings for Swiss with Top Cut
+     * Top Cut participants ranked by bracket position, others by Swiss standings
+     */
+    async getSwissTopCutStandings(leagueId, league) {
+        const allMatches = await this.matchRepo.findByLeague(leagueId);
+        const registrations = await this.registrationRepo.findByLeague(leagueId);
+        // Get top cut matches (rounds after Swiss rounds)
+        const swissRounds = league.totalRounds || 0;
+        const topCutMatches = allMatches.filter(m => (m.round?.roundNumber || 0) > swissRounds);
+        // Get all players who participated in top cut
+        const topCutPlayerIds = new Set();
+        for (const match of topCutMatches) {
+            if (match.player1Id)
+                topCutPlayerIds.add(match.player1Id);
+            if (match.player2Id)
+                topCutPlayerIds.add(match.player2Id);
+        }
+        // Get elimination standings for top cut participants
+        const topCutStandings = await this.getEliminationStandings(leagueId, league);
+        const topCutPlayersOnly = topCutStandings.filter(s => topCutPlayerIds.has(parseInt(s.playerId)));
+        // Get Swiss standings for all players (for those who didn't make top cut)
+        const swissStandings = await this.registrationRepo.getStandings(leagueId);
+        const nonTopCutPlayers = swissStandings.filter(s => !topCutPlayerIds.has(parseInt(s.playerId)));
+        // Combine: Top Cut players first (by bracket position), then Swiss standings
+        const combinedStandings = [
+            ...topCutPlayersOnly,
+            ...nonTopCutPlayers
+        ];
+        // Re-rank everything
+        return combinedStandings.map((entry, index) => ({
+            ...entry,
+            rank: index + 1
+        }));
+    }
+    /**
+     * Generate standings for elimination tournaments based on bracket progression
+     */
+    async getEliminationStandings(leagueId, league) {
+        const registrations = await this.registrationRepo.findByLeague(leagueId);
+        const allMatches = await this.matchRepo.findByLeague(leagueId);
+        // For Swiss with Top Cut, only consider top cut matches (after Swiss rounds)
+        let eliminationMatches = allMatches;
+        if (league.competitionType === types_1.CompetitionType.SWISS_WITH_TOP_CUT) {
+            const swissRounds = league.totalRounds || 0;
+            eliminationMatches = allMatches.filter(m => (m.round?.roundNumber || 0) > swissRounds);
+        }
+        // Create a map of player ID to their elimination details
+        const playerDetails = new Map();
+        // Initialize all players (or only top cut participants for Swiss+TopCut)
+        const relevantRegistrations = league.competitionType === types_1.CompetitionType.SWISS_WITH_TOP_CUT
+            ? registrations.filter(reg => {
+                // Check if this player participated in any top cut match
+                return eliminationMatches.some(m => m.player1Id === reg.playerId || m.player2Id === reg.playerId);
+            })
+            : registrations;
+        for (const reg of relevantRegistrations) {
+            playerDetails.set(reg.playerId, {
+                playerId: reg.playerId,
+                playerName: reg.player?.username || 'Unknown',
+                wins: reg.wins,
+                losses: reg.losses,
+                matchPoints: reg.matchPoints,
+                omwPercent: reg.omwPercent,
+                gwPercent: reg.gwPercent,
+                ogwPercent: reg.ogwPercent,
+            });
+        }
+        // Find the highest round number (finals)
+        const maxRound = Math.max(...eliminationMatches.map(m => m.round?.roundNumber || 0));
+        const finalsMatches = eliminationMatches.filter(m => (m.round?.roundNumber || 0) === maxRound && m.isCompleted);
+        // Determine champion and runner-up from finals
+        if (finalsMatches.length > 0) {
+            const finalMatch = finalsMatches[finalsMatches.length - 1]; // Last finals match (in case of bracket reset)
+            if (finalMatch.winnerId) {
+                const champion = playerDetails.get(finalMatch.winnerId);
+                if (champion) {
+                    champion.isChampion = true;
+                }
+                // Runner-up is the loser of finals
+                const runnerUpId = finalMatch.winnerId === finalMatch.player1Id ? finalMatch.player2Id : finalMatch.player1Id;
+                if (runnerUpId) {
+                    const runnerUp = playerDetails.get(runnerUpId);
+                    if (runnerUp) {
+                        runnerUp.isRunnerUp = true;
+                    }
+                }
+            }
+        }
+        // For each player, find the last round they played in (their elimination round)
+        for (const [playerId, details] of playerDetails) {
+            if (details.isChampion)
+                continue; // Champion wasn't eliminated
+            let lastRound = 0;
+            for (const match of eliminationMatches) {
+                if (match.isCompleted && (match.player1Id === playerId || match.player2Id === playerId)) {
+                    const roundNum = match.round?.roundNumber || 0;
+                    if (roundNum > lastRound) {
+                        lastRound = roundNum;
+                    }
+                    // Check if they lost this match (were eliminated)
+                    if (match.winnerId && match.winnerId !== playerId) {
+                        details.lastRoundEliminated = roundNum;
+                    }
+                }
+            }
+            // If runner-up, they made it to finals
+            if (details.isRunnerUp) {
+                details.lastRoundEliminated = maxRound;
+            }
+        }
+        // Sort players by bracket position
+        const sortedPlayers = Array.from(playerDetails.values()).sort((a, b) => {
+            // 1. Champion first
+            if (a.isChampion && !b.isChampion)
+                return -1;
+            if (!a.isChampion && b.isChampion)
+                return 1;
+            // 2. Runner-up second
+            if (a.isRunnerUp && !b.isRunnerUp)
+                return -1;
+            if (!a.isRunnerUp && b.isRunnerUp)
+                return 1;
+            // 3. Players eliminated later rank higher
+            const aRound = a.lastRoundEliminated || 0;
+            const bRound = b.lastRoundEliminated || 0;
+            if (aRound !== bRound) {
+                return bRound - aRound; // Higher round = better placement
+            }
+            // 4. For Swiss+TopCut, tie-break by Swiss standings (match points, then tiebreakers)
+            if (league.competitionType === types_1.CompetitionType.SWISS_WITH_TOP_CUT) {
+                if (a.matchPoints !== b.matchPoints)
+                    return b.matchPoints - a.matchPoints;
+                if (a.omwPercent !== b.omwPercent)
+                    return b.omwPercent - a.omwPercent;
+                if (a.gwPercent !== b.gwPercent)
+                    return b.gwPercent - a.gwPercent;
+                if (a.ogwPercent !== b.ogwPercent)
+                    return b.ogwPercent - a.ogwPercent;
+            }
+            // 5. Tie-break by wins
+            if (a.wins !== b.wins) {
+                return b.wins - a.wins;
+            }
+            // 6. Tie-break by losses (fewer losses is better)
+            return a.losses - b.losses;
+        });
+        // Convert to StandingsEntry format
+        return sortedPlayers.map((player, index) => ({
+            rank: index + 1,
+            playerId: player.playerId.toString(),
+            playerName: player.playerName,
+            wins: player.wins,
+            losses: player.losses,
+            draws: 0,
+            matchPoints: player.matchPoints,
+            omwPercent: player.omwPercent,
+            gwPercent: player.gwPercent,
+            ogwPercent: player.ogwPercent,
+        }));
     }
     async dropPlayer(leagueId, discordId) {
         const player = await this.playerRepo.findByDiscordId(discordId);
