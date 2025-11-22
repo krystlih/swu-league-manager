@@ -149,58 +149,80 @@ export class EliminationService {
 
     // Generate losers bracket pairings
     // Losers bracket alternates between:
-    // 1. Matches between losers from winners bracket
-    // 2. Matches between losers bracket survivors
+    // 1. Matches between losers from winners bracket vs losers bracket survivors (feed rounds)
+    // 2. Matches between losers bracket survivors only (consolidation rounds)
     
     if (winnersMatches.length > 0) {
-      // Feed losers from winners bracket into losers bracket
       const sortedWinnersMatches = [...winnersMatches].sort((a, b) => a.matchNumber - b.matchNumber);
       const sortedLosersMatches = [...losersMatches].sort((a, b) => a.matchNumber - b.matchNumber);
       
-      // Determine losers bracket round type based on round number
-      const isLosersFeedRound = currentRoundNumber % 2 === 0;
-      
-      if (isLosersFeedRound && sortedWinnersMatches.length > 0) {
-        // Pair losers from winners bracket with survivors from losers bracket
-        // Highest seed loser vs lowest seed survivor, etc.
+      // Special case: First losers bracket round (after round 1)
+      // All losers from winners bracket get paired against each other
+      if (losersMatches.length === 0 && winnersMatches.length > 0) {
         const losersFromWinners = sortedWinnersMatches.map(m => ({ 
           id: m.loserId, 
           name: m.loserName 
         }));
         
-        const losersBracketSurvivors = sortedLosersMatches.map(m => ({ 
-          id: m.winnerId, 
-          name: m.winnerName 
-        }));
-        
-        // Reverse losers from winners to maintain seeding
-        const reversedLosers = losersFromWinners.reverse();
-        
-        for (let i = 0; i < Math.min(reversedLosers.length, losersBracketSurvivors.length); i++) {
+        // Pair losers: highest seed vs lowest seed
+        const numLosersMatches = Math.floor(losersFromWinners.length / 2);
+        for (let i = 0; i < numLosersMatches; i++) {
           result.losersBracketPairings.push({
             tableNumber: i + 1,
-            player1Id: losersBracketSurvivors[i].id.toString(),
-            player1Name: losersBracketSurvivors[i].name,
-            player2Id: reversedLosers[i].id.toString(),
-            player2Name: reversedLosers[i].name,
+            player1Id: losersFromWinners[i].id.toString(),
+            player1Name: losersFromWinners[i].name,
+            player2Id: losersFromWinners[losersFromWinners.length - 1 - i].id.toString(),
+            player2Name: losersFromWinners[losersFromWinners.length - 1 - i].name,
             isBye: false,
           });
         }
-      } else if (sortedLosersMatches.length > 1) {
-        // Pair losers bracket survivors against each other
-        for (let i = 0; i < sortedLosersMatches.length; i += 2) {
-          if (i + 1 < sortedLosersMatches.length) {
-            const match1Winner = sortedLosersMatches[i];
-            const match2Winner = sortedLosersMatches[i + 1];
-            
+      } else {
+        // Determine losers bracket round type based on round number
+        // Even rounds: feed losers from winners bracket into losers bracket
+        // Odd rounds: losers bracket survivors play each other
+        const isLosersFeedRound = currentRoundNumber % 2 === 0;
+        
+        if (isLosersFeedRound && sortedWinnersMatches.length > 0 && sortedLosersMatches.length > 0) {
+          // Pair losers from winners bracket with survivors from losers bracket
+          const losersFromWinners = sortedWinnersMatches.map(m => ({ 
+            id: m.loserId, 
+            name: m.loserName 
+          }));
+          
+          const losersBracketSurvivors = sortedLosersMatches.map(m => ({ 
+            id: m.winnerId, 
+            name: m.winnerName 
+          }));
+          
+          // Reverse losers from winners to maintain seeding
+          const reversedLosers = losersFromWinners.reverse();
+          
+          for (let i = 0; i < Math.min(reversedLosers.length, losersBracketSurvivors.length); i++) {
             result.losersBracketPairings.push({
-              tableNumber: Math.floor(i / 2) + 1,
-              player1Id: match1Winner.winnerId.toString(),
-              player1Name: match1Winner.winnerName,
-              player2Id: match2Winner.winnerId.toString(),
-              player2Name: match2Winner.winnerName,
+              tableNumber: i + 1,
+              player1Id: losersBracketSurvivors[i].id.toString(),
+              player1Name: losersBracketSurvivors[i].name,
+              player2Id: reversedLosers[i].id.toString(),
+              player2Name: reversedLosers[i].name,
               isBye: false,
             });
+          }
+        } else if (sortedLosersMatches.length > 1) {
+          // Pair losers bracket survivors against each other
+          for (let i = 0; i < sortedLosersMatches.length; i += 2) {
+            if (i + 1 < sortedLosersMatches.length) {
+              const match1Winner = sortedLosersMatches[i];
+              const match2Winner = sortedLosersMatches[i + 1];
+              
+              result.losersBracketPairings.push({
+                tableNumber: Math.floor(i / 2) + 1,
+                player1Id: match1Winner.winnerId.toString(),
+                player1Name: match1Winner.winnerName,
+                player2Id: match2Winner.winnerId.toString(),
+                player2Name: match2Winner.winnerName,
+                isBye: false,
+              });
+            }
           }
         }
       }
