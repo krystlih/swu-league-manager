@@ -66,13 +66,32 @@ class MatchRepository {
     }
     async reportResult(id, player1Wins, player2Wins, draws) {
         console.log(`[DEBUG MatchRepository] reportResult called with:`, { id, player1Wins, player2Wins, draws });
+        // Determine winner
+        const match = await prismaClient_1.prisma.match.findUnique({ where: { id } });
+        if (!match) {
+            throw new Error('Match not found');
+        }
+        let winnerId = null;
+        let isDraw = false;
+        if (player1Wins > player2Wins) {
+            winnerId = match.player1Id;
+        }
+        else if (player2Wins > player1Wins) {
+            winnerId = match.player2Id;
+        }
+        else {
+            isDraw = true;
+        }
         const result = await prismaClient_1.prisma.match.update({
             where: { id },
             data: {
                 player1Wins,
                 player2Wins,
                 draws,
+                winnerId,
+                isDraw,
                 isCompleted: true,
+                reportedAt: new Date(),
             },
         });
         console.log(`[DEBUG MatchRepository] Match updated successfully:`, {
@@ -80,6 +99,8 @@ class MatchRepository {
             player1Wins: result.player1Wins,
             player2Wins: result.player2Wins,
             draws: result.draws,
+            winnerId: result.winnerId,
+            isDraw: result.isDraw,
             isCompleted: result.isCompleted,
         });
         return result;

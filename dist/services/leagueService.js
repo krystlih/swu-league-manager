@@ -775,10 +775,12 @@ class LeagueService {
             }
             const matches = await this.matchRepo.findByRound(currentRound.id);
             const completedMatches = matches
-                .filter(m => m.isCompleted && m.winnerId && m.player1 && m.player2)
+                .filter(m => m.isCompleted && m.winnerId)
                 .map(m => ({
                 winnerId: m.winnerId,
-                winnerName: m.winnerId === m.player1Id ? m.player1.username : m.player2.username,
+                winnerName: m.winnerId === m.player1Id
+                    ? (m.player1?.username || 'Player 1')
+                    : (m.player2?.username || 'Player 2'),
                 matchNumber: m.tableNumber || 0,
             }));
             if (completedMatches.length === 0) {
@@ -833,19 +835,25 @@ class LeagueService {
             const currentRoundMatches = allMatches.filter(m => m.round?.roundNumber === league.currentRound && m.isCompleted);
             // Separate winners and losers bracket matches
             const winnersMatches = currentRoundMatches
-                .filter(m => !m.isLosersBracket && m.winnerId && !m.isGrandFinals && m.player1 && m.player2)
+                .filter(m => !m.isLosersBracket && m.winnerId && !m.isGrandFinals)
                 .map(m => ({
                 winnerId: m.winnerId,
-                winnerName: m.winnerId === m.player1Id ? m.player1.username : m.player2.username,
+                winnerName: m.winnerId === m.player1Id
+                    ? (m.player1?.username || 'Player 1')
+                    : (m.player2?.username || 'Player 2'),
                 loserId: m.winnerId === m.player1Id ? m.player2Id : m.player1Id,
-                loserName: m.winnerId === m.player1Id ? m.player2.username : m.player1.username,
+                loserName: m.winnerId === m.player1Id
+                    ? (m.player2?.username || 'Player 2')
+                    : (m.player1?.username || 'Player 1'),
                 matchNumber: m.tableNumber || 0,
             }));
             const losersMatches = currentRoundMatches
-                .filter(m => m.isLosersBracket && m.winnerId && m.player1 && m.player2)
+                .filter(m => m.isLosersBracket && m.winnerId)
                 .map(m => ({
                 winnerId: m.winnerId,
-                winnerName: m.winnerId === m.player1Id ? m.player1.username : m.player2.username,
+                winnerName: m.winnerId === m.player1Id
+                    ? (m.player1?.username || 'Player 1')
+                    : (m.player2?.username || 'Player 2'),
                 matchNumber: m.tableNumber || 0,
             }));
             // Check for grand finals

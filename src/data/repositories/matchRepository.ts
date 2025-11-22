@@ -93,13 +93,33 @@ export class MatchRepository {
   ): Promise<Match> {
     console.log(`[DEBUG MatchRepository] reportResult called with:`, { id, player1Wins, player2Wins, draws });
     
+    // Determine winner
+    const match = await prisma.match.findUnique({ where: { id } });
+    if (!match) {
+      throw new Error('Match not found');
+    }
+
+    let winnerId: number | null = null;
+    let isDraw = false;
+
+    if (player1Wins > player2Wins) {
+      winnerId = match.player1Id;
+    } else if (player2Wins > player1Wins) {
+      winnerId = match.player2Id;
+    } else {
+      isDraw = true;
+    }
+    
     const result = await prisma.match.update({
       where: { id },
       data: {
         player1Wins,
         player2Wins,
         draws,
+        winnerId,
+        isDraw,
         isCompleted: true,
+        reportedAt: new Date(),
       },
     });
     
@@ -108,6 +128,8 @@ export class MatchRepository {
       player1Wins: result.player1Wins,
       player2Wins: result.player2Wins,
       draws: result.draws,
+      winnerId: result.winnerId,
+      isDraw: result.isDraw,
       isCompleted: result.isCompleted,
     });
     
