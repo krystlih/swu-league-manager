@@ -543,15 +543,34 @@ class LeagueService {
     async startTopCut(leagueId) {
         console.log(`[TOP CUT] Starting top cut for league ${leagueId}`);
         const league = await this.leagueRepo.findById(leagueId);
-        if (!league || !league.topCutSize) {
-            console.log(`[TOP CUT] League not found or no top cut size configured`);
+        if (!league) {
+            console.log(`[TOP CUT] League not found`);
             return;
         }
-        console.log(`[TOP CUT] League found, top cut size: ${league.topCutSize}`);
-        // Get final standings from Swiss rounds
+        // Get final standings to determine actual player count
         const standings = await this.getStandings(leagueId);
-        console.log(`[TOP CUT] Got ${standings.length} standings`);
-        const topPlayers = standings.slice(0, league.topCutSize);
+        const activePlayers = standings.length;
+        console.log(`[TOP CUT] League found, ${activePlayers} active players`);
+        // Calculate or validate top cut size
+        let topCutSize = league.topCutSize;
+        if (!topCutSize || topCutSize === 0) {
+            // Calculate appropriate top cut size based on active players
+            topCutSize = this.calculateTopCutSize(activePlayers);
+            // If still 0 (fewer than 8 players), use a minimum of 2 for finals
+            if (topCutSize === 0 && activePlayers >= 2) {
+                topCutSize = Math.min(2, activePlayers);
+                console.log(`[TOP CUT] Small tournament (${activePlayers} players), setting top cut to ${topCutSize}`);
+            }
+            if (topCutSize === 0 || topCutSize > activePlayers) {
+                console.log(`[TOP CUT] Cannot create top cut with ${activePlayers} players`);
+                await this.autoEndTournament(leagueId);
+                return;
+            }
+            // Update the league with calculated top cut size
+            await this.leagueRepo.update(leagueId, { topCutSize });
+            console.log(`[TOP CUT] Set top cut size to ${topCutSize}`);
+        }
+        const topPlayers = standings.slice(0, topCutSize);
         console.log(`[TOP CUT] Top ${topPlayers.length} players:`, topPlayers.map(p => `${p.playerName} (ID: ${p.playerId})`).join(', '));
         if (topPlayers.length < 2) {
             // Not enough players for top cut, just end tournament
