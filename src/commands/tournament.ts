@@ -595,45 +595,77 @@ export const tournamentCommand = {
           timerService.cancelRoundTimer(leagueId, league.currentRound);
         }
 
-        const pairings = await leagueService.generateNextRound(leagueId);
+        try {
+          const pairings = await leagueService.generateNextRound(leagueId);
 
-        // Start round timer for new round if configured
-        const updatedLeague = await leagueService.getLeague(leagueId);
-        if (updatedLeague) {
-          await timerService.startRoundTimer(
-            leagueId,
-            updatedLeague.currentRound,
-            interaction.guildId!,
-            interaction.channelId
-          );
-        }
+          // Start round timer for new round if configured
+          const updatedLeague = await leagueService.getLeague(leagueId);
+          if (updatedLeague) {
+            await timerService.startRoundTimer(
+              leagueId,
+              updatedLeague.currentRound,
+              interaction.guildId!,
+              interaction.channelId
+            );
+          }
 
-        const embed = new EmbedBuilder()
-          .setColor(0x0099ff)
-          .setTitle(`${league.name} - Round ${league.currentRound + 1} Pairings`)
-          .setTimestamp();
+          const embed = new EmbedBuilder()
+            .setColor(0x0099ff)
+            .setTitle(`${league.name} - Round ${league.currentRound + 1} Pairings`)
+            .setTimestamp();
 
-        pairings.forEach((pairing, index) => {
-          const player2Name = pairing.player2Name || 'BYE';
-          const isBye = !pairing.player2Name;
-          const matchInfo = isBye 
-            ? `${pairing.player1Name} vs ${player2Name} ✅ (Auto-completed: 2-0-0)`
-            : `${pairing.player1Name} vs ${player2Name}`;
-          
-          embed.addFields({
-            name: `Table ${index + 1}`,
-            value: matchInfo,
+          pairings.forEach((pairing, index) => {
+            const player2Name = pairing.player2Name || 'BYE';
+            const isBye = !pairing.player2Name;
+            const matchInfo = isBye 
+              ? `${pairing.player1Name} vs ${player2Name} ✅ (Auto-completed: 2-0-0)`
+              : `${pairing.player1Name} vs ${player2Name}`;
+            
+            embed.addFields({
+              name: `Table ${index + 1}`,
+              value: matchInfo,
+            });
           });
-        });
 
-        // Add timer info to embed if configured
-        if (updatedLeague?.roundTimerMinutes) {
-          embed.setFooter({ 
-            text: `Round timer: ${updatedLeague.roundTimerMinutes} minutes (starts in 5 minutes)` 
-          });
+          // Add timer info to embed if configured
+          if (updatedLeague?.roundTimerMinutes) {
+            embed.setFooter({ 
+              text: `Round timer: ${updatedLeague.roundTimerMinutes} minutes (starts in 5 minutes)` 
+            });
+          }
+
+          await interaction.reply({ embeds: [embed] });
+        } catch (nextRoundError: any) {
+          // Check if this is the TOP_CUT_STARTED signal
+          if (nextRoundError.message === 'TOP_CUT_STARTED') {
+            // Fetch updated league to get Top Cut info
+            const updatedLeague = await leagueService.getLeague(leagueId);
+            if (updatedLeague) {
+              const matches = await leagueService.getCurrentRoundMatches(leagueId);
+              
+              const embed = new EmbedBuilder()
+                .setColor(0x00ff00)
+                .setTitle(`🏆 ${league.name} - Top ${updatedLeague.topCutSize || 8} has started!`)
+                .setDescription('Swiss rounds are complete. The single elimination bracket has been generated.')
+                .setTimestamp();
+
+              if (matches && matches.length > 0) {
+                matches.forEach((match: any, index: number) => {
+                  const player2Name = match.player2 ? match.player2.username : 'BYE';
+                  embed.addFields({
+                    name: `Match ${index + 1}`,
+                    value: `${match.player1.username} vs ${player2Name}`,
+                  });
+                });
+              }
+
+              await interaction.reply({ embeds: [embed] });
+              return;
+            }
+          }
+          // Re-throw if it's not the TOP_CUT_STARTED signal
+          throw nextRoundError;
         }
-
-        await interaction.reply({ embeds: [embed] });
       } else if (subcommand === 'report') {
         const yourWins = interaction.options.getInteger('your_wins', true);
         const opponentWins = interaction.options.getInteger('opponent_wins', true);
