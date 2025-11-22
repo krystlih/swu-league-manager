@@ -628,22 +628,30 @@ export class LeagueService {
    * Start top cut phase with single elimination bracket
    */
   private async startTopCut(leagueId: number): Promise<void> {
+    console.log(`[TOP CUT] Starting top cut for league ${leagueId}`);
     const league = await this.leagueRepo.findById(leagueId);
     if (!league || !league.topCutSize) {
+      console.log(`[TOP CUT] League not found or no top cut size configured`);
       return;
     }
 
+    console.log(`[TOP CUT] League found, top cut size: ${league.topCutSize}`);
+
     // Get final standings from Swiss rounds
     const standings = await this.getStandings(leagueId);
+    console.log(`[TOP CUT] Got ${standings.length} standings`);
     const topPlayers = standings.slice(0, league.topCutSize);
+    console.log(`[TOP CUT] Top ${topPlayers.length} players:`, topPlayers.map(p => `${p.playerName} (ID: ${p.playerId})`).join(', '));
 
     if (topPlayers.length < 2) {
       // Not enough players for top cut, just end tournament
+      console.log(`[TOP CUT] Not enough players, ending tournament`);
       await this.autoEndTournament(leagueId);
       return;
     }
 
     // Update league status to TOP_CUT
+    console.log(`[TOP CUT] Updating league status to TOP_CUT`);
     await this.leagueRepo.update(leagueId, {
       status: LeagueStatus.TOP_CUT,
       hasTopCut: true,
@@ -665,25 +673,31 @@ export class LeagueService {
     });
 
     // Generate first round of top cut with seeded pairings
+    console.log(`[TOP CUT] Generating first round of top cut`);
     await this.generateTopCutRound(leagueId, topPlayers);
+    console.log(`[TOP CUT] Top cut successfully started`);
   }
 
   /**
    * Generate top cut bracket round with seeded pairings (1 vs last, 2 vs second-to-last, etc.)
    */
   private async generateTopCutRound(leagueId: number, players: StandingsEntry[]): Promise<void> {
+    console.log(`[TOP CUT ROUND] Generating top cut round for ${players.length} players`);
     const league = await this.leagueRepo.findById(leagueId);
     if (!league) {
       throw new Error('League not found');
     }
 
     const nextRoundNumber = league.currentRound + 1;
+    console.log(`[TOP CUT ROUND] Current round: ${league.currentRound}, next round: ${nextRoundNumber}`);
     
     // Create round
     const round = await this.roundRepo.create(leagueId, nextRoundNumber);
+    console.log(`[TOP CUT ROUND] Created round ${round.id}`);
 
     // Generate seeded pairings: 1 vs last, 2 vs second-to-last, etc.
     const numMatches = Math.floor(players.length / 2);
+    console.log(`[TOP CUT ROUND] Creating ${numMatches} matches`);
     
     for (let i = 0; i < numMatches; i++) {
       const highSeed = players[i];
@@ -693,8 +707,10 @@ export class LeagueService {
       const player1Id = parseInt(highSeed.playerId);
       const player2Id = parseInt(lowSeed.playerId);
 
+      console.log(`[TOP CUT ROUND] Match ${i + 1}: ${highSeed.playerName} (${highSeed.playerId} -> ${player1Id}) vs ${lowSeed.playerName} (${lowSeed.playerId} -> ${player2Id})`);
+
       if (isNaN(player1Id) || isNaN(player2Id)) {
-        console.error(`Invalid player IDs in top cut: player1=${highSeed.playerId}, player2=${lowSeed.playerId}`);
+        console.error(`[TOP CUT ROUND] Invalid player IDs in top cut: player1=${highSeed.playerId}, player2=${lowSeed.playerId}`);
         throw new Error(`Invalid player IDs for top cut pairing: ${highSeed.playerName} vs ${lowSeed.playerName}`);
       }
 
@@ -706,15 +722,18 @@ export class LeagueService {
         i + 1,
         false
       );
+      console.log(`[TOP CUT ROUND] Created match ${i + 1}`);
     }
 
     // Update league current round
+    console.log(`[TOP CUT ROUND] Updating league current round to ${nextRoundNumber}`);
     await this.leagueRepo.update(leagueId, {
       currentRound: nextRoundNumber,
     });
 
     // Start timer for this round if configured
     if (league.roundTimerMinutes && league.announcementChannelId) {
+      console.log(`[TOP CUT ROUND] Starting round timer`);
       await this.timerService.startRoundTimer(
         leagueId,
         nextRoundNumber,
