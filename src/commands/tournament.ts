@@ -1063,32 +1063,41 @@ export const tournamentCommand = {
       
       // Check if this is the special TOP_CUT_STARTED message
       if (error instanceof Error && error.message === 'TOP_CUT_STARTED') {
-        // Fetch the updated league to get pairings
-        const tournamentName = interaction.options.getString('tournament', true);
-        const league = await leagueService.getLeagueByName(interaction.guildId!, tournamentName);
-        
-        if (league) {
-          // Get the pairings for the first Top Cut round
-          const matches = await leagueService.getCurrentRoundMatches(league.id);
-          
-          const embed = new EmbedBuilder()
-            .setColor(0x00ff00)
-            .setTitle(`🏆 ${league.name} - Top ${league.topCutSize || 8} has started!`)
-            .setDescription('Swiss rounds are complete. The single elimination bracket has been generated.')
-            .setTimestamp();
-
-          if (matches && matches.length > 0) {
-            matches.forEach((match: any, index: number) => {
-              const player2Name = match.player2 ? match.player2.username : 'BYE';
-              embed.addFields({
-                name: `Match ${index + 1}`,
-                value: `${match.player1.username} vs ${player2Name}`,
-              });
-            });
+        try {
+          // Get tournament name and fetch updated league
+          const tournamentName = interaction.options.getString('tournament');
+          if (!tournamentName || !interaction.guildId) {
+            throw new Error('Unable to fetch tournament information');
           }
+          
+          const league = await leagueService.getLeagueByName(interaction.guildId, tournamentName);
+          
+          if (league) {
+            // Get the pairings for the first Top Cut round
+            const matches = await leagueService.getCurrentRoundMatches(league.id);
+            
+            const embed = new EmbedBuilder()
+              .setColor(0x00ff00)
+              .setTitle(`🏆 ${league.name} - Top ${league.topCutSize || 8} has started!`)
+              .setDescription('Swiss rounds are complete. The single elimination bracket has been generated.')
+              .setTimestamp();
 
-          await interaction.reply({ embeds: [embed] });
-          return;
+            if (matches && matches.length > 0) {
+              matches.forEach((match: any, index: number) => {
+                const player2Name = match.player2 ? match.player2.username : 'BYE';
+                embed.addFields({
+                  name: `Match ${index + 1}`,
+                  value: `${match.player1.username} vs ${player2Name}`,
+                });
+              });
+            }
+
+            await interaction.reply({ embeds: [embed] });
+            return;
+          }
+        } catch (topCutError) {
+          console.error('Error showing Top Cut started message:', topCutError);
+          // Fall through to show generic error
         }
       }
       
